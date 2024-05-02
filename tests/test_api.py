@@ -1,4 +1,4 @@
-import pupil_labs.project_name as this_project
+import pupil_labs.action_cam_mapper as this_project
 
 
 def test_package_metadata() -> None:

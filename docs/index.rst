@@ -7,7 +7,7 @@ Welcome to |project| documentation!
    history
 
 
-.. automodule:: skeleton
+.. automodule:: action_cam_mapper
     :members:
     :undoc-members:
     :show-inheritance:

@@ -21,10 +21,13 @@ class VideoHandler():
         self.timestamps = video_timestamps
 
     def get_frame_by_timestamp(self, timestamp):
-        pass
-        # according to PyAV obscure documentation, the seek function is the way to go
-        # seek the frame at the timestamp in stream.time_base units
-        # https://github.com/PyAV-Org/PyAV/discussions/1113
+        timestamp = self.get_closest_timestamp(timestamp)
+        #work accurately, but is slow
+        with av.open(self.video_dir) as container:
+            for frame in container.decode(video=0):
+                if frame.time == timestamp:
+                    frame=frame.to_image()
+                    return frame #pil image
     
     def get_timestamps_in_interval(self, start_time, end_time):
         # get all the timestamps between start_time and end_time

@@ -29,8 +29,7 @@ class OpticFlowCalculatorBase(ABC):
         return self.get_optic_flow(self.video.timestamps[0], self.video.timestamps[-1])
 
     def get_optic_flow(self, start_timestamp, end_timestamp):
-        timestamps_for_optic_flow = s
-            for frame in container.decode(video=0):lf.video.get_timestamps(
+        timestamps_for_optic_flow = self.video.get_timestamps(
             start_timestamp, end_timestamp)
         requested_optic_flow = dict(start=[], end=[], avg_displacement_x=[
         ], avg_displacement_y=[], angle=[])

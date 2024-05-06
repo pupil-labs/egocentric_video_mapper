@@ -1,16 +1,16 @@
+import av
+import imageio.v3 as iio
 import numpy as np
 import pandas as pd
-import av
 
 
-# functions there are common to all modules or that are helpers
 
 class VideoHandler():
-    #class that handles video reading, frame retrieval and relative timestamps
+    
     def __init__(self, video_dir):
         self.video_dir = video_dir
         self.timestamps=self.get_timestamps()
-        self.width, self.height = self.get_video_dimensions()
+        self.height, self.width = self.get_video_dimensions()
     
     def get_timestamps(self):
         with av.open(self.video_dir) as container:
@@ -18,26 +18,43 @@ class VideoHandler():
             video_timestamps = [
                 packet.pts / video.time_base.denominator for packet in container.demux(video) if packet.pts is not None
             ]
-        self.timestamps = video_timestamps
+        return np.asarray(video_timestamps)
 
+    def get_video_dimensions(self):
+        return iio.improps(self.video_dir, plugin="pyav").shape[1], iio.improps(self.video_dir, plugin="pyav").shape[2]
+    
     def get_frame_by_timestamp(self, timestamp):
         timestamp = self.get_closest_timestamp(timestamp)
-        #work accurately, but is slow
-        with av.open(self.video_dir) as container:
-            for frame in container.decode(video=0):
-                if frame.time == timestamp:
-                    frame=frame.to_image()
-                    return frame #pil image
-    
-    def get_timestamps_in_interval(self, start_time, end_time):
-        # get all the timestamps between start_time and end_time
-        # start_time and end_times are in seconds and do not necessarily correspond to the video timestamps
+        timestamp_index = np.where(self.timestamps == timestamp)[0][0]
+        frame = iio.imread(
+            self.video_dir,
+                index=timestamp_index,
+                plugin="pyav",
+            )
+        return frame
+        
+    def get_timestamps_in_interval(self, start_time=0, end_time=np.inf):
+        """Get all the timestamps between start_time and end_time. If no arguments are given, it returns all the timestamps.
+
+        Args:
+            start_time (float): Starting time in seconds, must be smaller than end_time. Does not necessarily correspond to the video timestamps. Defaults to 0.
+            end_time (float): Ending time in seconds, must be larger than start_time. Does not necessarily correspond to the video timestamps. Defaults to np.inf.
+
+        Returns:
+            ndarray: Numpy array with all the video timestamps contained between start_time and end_time.
+        """
         assert (start_time < end_time), f"Start time ({start_time} s) must be smaller than end time ({end_time} s)"
-        return self.timestamps[start_time<=self.timestamps<=end_time]
+        return self.timestamps[(self.timestamps >= start_time) & (self.timestamps <= end_time)]
     
     def get_closest_timestamp(self, time):
-        # get the closest video timestamp to the given timestamp 
-        return self.timestamps[np.argmin(np.abs(np.array(self.timestamps) - time))]
+        """Get the closest video timestamp to the given time.
+        Args:
+            time (float): Time in seconds
+
+        Returns:
+            float: Closest video timestamp to the given time, it can be before or after the given time.
+        """
+        return self.timestamps[np.argmin(np.abs(self.timestamps - time))]
 
 
 
@@ -50,6 +67,3 @@ def write_worldtimestamp_csv(world_timestamps, relative_timestamps, time_delay):
     # new_world_timestamps = (relative_timestamps + time_delay)/10e-9 + world_timestamps[timestamp [ns]][0]
     # after getting the new world timestamps, the other columns in the csv file are parsed to the new timestamps
     # the new csv file is saved in the same directory as the original csv file under the name external_camera_world_timestamps.csv
-
-# would it be of interest to create a module that calls the functions and optic flow objects so it is all done in one go?
-

@@ -6,22 +6,44 @@ import pandas as pd
 
 
 class VideoHandler():
+    """Class to wrap video files and extract useful information from them.
+
+    Args:
+        video_dir (str): Path to the video file.
+    """
     
     def __init__(self, video_dir):
         self.video_dir = video_dir
-        self.timestamps=self.get_timestamps()
-        self.height, self.width = self.get_video_dimensions()
+        self._timestamps = self.get_timestamps()
+        
+    
+    @property
+    def height(self):
+        return iio.improps(self.video_dir, plugin="pyav").shape[1]
+    @property
+    def width(self):
+        return iio.improps(self.video_dir, plugin="pyav").shape[2]
+    
+    @property
+    def fps(self):
+        with av.open(self.video_dir) as container:
+            video = container.streams.video[0]
+            average_rate=video.average_rate
+        return average_rate.numerator/average_rate.denominator
+    
+    @property
+    def timestamps(self):
+        return self._timestamps
     
     def get_timestamps(self):
         with av.open(self.video_dir) as container:
             video = container.streams.video[0]
+            if video.type != "video":
+                raise ValueError("No video stream found")
             video_timestamps = [
                 packet.pts / video.time_base.denominator for packet in container.demux(video) if packet.pts is not None
             ]
         return np.asarray(video_timestamps)
-
-    def get_video_dimensions(self):
-        return iio.improps(self.video_dir, plugin="pyav").shape[1], iio.improps(self.video_dir, plugin="pyav").shape[2]
     
     def get_frame_by_timestamp(self, timestamp):
         timestamp = self.get_closest_timestamp(timestamp)

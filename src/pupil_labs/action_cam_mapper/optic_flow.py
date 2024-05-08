@@ -65,15 +65,15 @@ class OpticFlowCalculatorBase(ABC):
     def _calculate_optical_flow_between_frames(self, first_frame, second_frame) -> dict:
         return
 
-    def write_to_csv(self,output_file, optic_flow_data=None):
-        if optic_flow_data is None:
-            optic_flow_data = self.optic_flow_result
+    def write_to_csv(self,output_file):
+        optic_flow_data = self.optic_flow_result
         if Path(output_file).exists():
-            print('File already exists, appending to it')
-            optic_flow_file = pd.read_csv(output_file)
-            optic_flow_data = pd.concat([optic_flow_file, optic_flow_data])
+            print('File already exists, appending to it') 
+            optic_flow_file = pd.read_csv(output_file, dtype={'start': np.float32, 'end': np.float32, 'avg_displacement_x': np.float32, 'avg_displacement_y': np.float32, 'angle': np.float32})
+            optic_flow_data = pd.concat([optic_flow_file, optic_flow_data],ignore_index=True)
+        optic_flow_data.drop_duplicates(subset=['start','end'], keep='last', inplace=True)
         optic_flow_data.sort_values(by=['start'], inplace=True, ignore_index=True)
-        optic_flow_data.drop_duplicates().to_csv(output_file, index=False)
+        optic_flow_data.to_csv(output_file, index=False)
 
 
 class OpticFlowCalculatorLK(OpticFlowCalculatorBase):

@@ -2,7 +2,7 @@ import av
 import imageio.v3 as iio
 import numpy as np
 import pandas as pd
-
+from pathlib import Path
 
 
 class VideoHandler():
@@ -43,7 +43,7 @@ class VideoHandler():
             video_timestamps = [
                 packet.pts / video.time_base.denominator for packet in container.demux(video) if packet.pts is not None
             ]
-        return np.asarray(video_timestamps)
+        return np.asarray(video_timestamps, dtype=np.float32)
     
     def get_frame_by_timestamp(self, timestamp):
         timestamp = self.get_closest_timestamp(timestamp)
@@ -81,11 +81,34 @@ class VideoHandler():
 
 
 def write_worldtimestamp_csv(world_timestamps, relative_timestamps, time_delay):
-    pass
-    # creates world timestamps from relative timestamps and a time delay
-    # world_timestamps is the csv file from neon scene camera
-    # relative_timestamps is the timestamps of the external camera obtained from the .mp4 metadata
-    # time_delay is the time delay between the two cameras, calculated using alignSignals
-    # new_world_timestamps = (relative_timestamps + time_delay)/10e-9 + world_timestamps[timestamp [ns]][0]
-    # after getting the new world timestamps, the other columns in the csv file are parsed to the new timestamps
-    # the new csv file is saved in the same directory as the original csv file under the name external_camera_world_timestamps.csv
+    """Function that creates a world timestamp csv file for action camera recording.
+
+    Args:
+        world_timestamps (str): Path to the world_timestamps.csv of the Neon recording
+        relative_timestamps (ndarray): Timestamps of the action camera recording, obtainened from the metadata of the video file.
+        time_delay (float): Time delay between the action camera and the Neon Scene camera in seconds. 
+    """
+    world_timestamps = pd.read_csv(world_timestamps)
+    action_timestamps = (relative_timestamps + time_delay)/1e-9
+    action_timestamps = np.int64(action_timestamps)
+    action_timestamps += world_timestamps["timestamp [ns]"].iloc[0]
+    action_world_timestamps = pd.DataFrame({"section id":[None for _ in action_timestamps],"record id": [None for _ in action_timestamps],"timestamp [ns]": action_timestamps})
+
+    last_ts=max(world_timestamps['timestamp [ns]'])
+    first_ts=min(world_timestamps['timestamp [ns]'])
+    for section in world_timestamps['section id'].unique():
+        start_section = min(world_timestamps[world_timestamps['section id'] == section]['timestamp [ns]'])
+        end_section = max(world_timestamps[world_timestamps['section id'] == section]['timestamp [ns]'])
+        action_world_timestamps.loc[(action_world_timestamps['timestamp [ns]']>=start_section)&(action_world_timestamps['timestamp [ns]']<end_section), 'section id'] = section
+    action_world_timestamps.loc[(action_world_timestamps['section id'].isnull()) & (action_world_timestamps['timestamp [ns]']<first_ts), 'section id'] = world_timestamps.loc[world_timestamps['timestamp [ns]' == first_ts]['section id']].values[0]
+    action_world_timestamps.loc[(action_world_timestamps['section id'].isnull()) & (action_world_timestamps['timestamp [ns]']>=last_ts), 'section id'] = world_timestamps.loc[world_timestamps['timestamp [ns]' == last_ts]['section id']].values[0]
+
+    for record in world_timestamps['record id'].unique():
+        start_record = min(world_timestamps[world_timestamps['record id'] == record]['timestamp [ns]'])
+        end_record = max(world_timestamps[world_timestamps['record id'] == record]['timestamp [ns]'])
+        action_world_timestamps.loc[(action_world_timestamps['timestamp [ns]']>=start_record)&(action_world_timestamps['timestamp [ns]']<end_record), 'record id'] = record
+    action_world_timestamps.loc[(action_world_timestamps['record id'].isnull()) & (action_world_timestamps['timestamp [ns]']<first_ts), 'record id'] = world_timestamps.loc[world_timestamps['timestamp [ns]' == first_ts]['record id']].values[0]
+    action_world_timestamps.loc[(action_world_timestamps['record id'].isnull()) & (action_world_timestamps['timestamp [ns]']>=last_ts), 'record id'] = world_timestamps.loc[world_timestamps['timestamp [ns]' == last_ts]['record id']].values[0]
+    
+    action_world_timestamps = pd.DataFrame({"world_timestamps": action_timestamps})
+    action_world_timestamps.to_csv("action_camera_world_timestamps.csv", index=False)

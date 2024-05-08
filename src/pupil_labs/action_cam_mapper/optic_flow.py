@@ -19,6 +19,10 @@ class OpticFlowResult:
 
 
 class OpticFlowCalculatorBase(ABC):
+    """Base class for optic flow calculation.
+    Args:
+        video_dir(str): Path to the video file
+    """
     def __init__(self, video_dir):
         self.video = VideoHandler(video_dir)
         self.optic_flow_result = pd.DataFrame.from_dict(
@@ -27,13 +31,22 @@ class OpticFlowCalculatorBase(ABC):
     def get_all_optic_flow(self):
         return self.get_optic_flow(self.video.timestamps[0], self.video.timestamps[-1])
 
-    def get_optic_flow(self, start_timestamp, end_timestamp, output_file=None):
+    def get_optic_flow(self, start_time, end_time, output_file=None):
+        """Method to calculate the optic flow in a defined video interval. Optic flow is calculated between consecutive frames in the interval.
+        Args:
+            start_time (float): start time of the video interval to calculate the optic flow signal.
+            end_time (float): end time of the video interval to calculate the optic flow signal.
+            output_file (str, optional): Path to a csv file to store the calculated optic flow signal. Defaults to None. If not specified, the signal is not saved to a file. 
+
+        Returns:
+            DataFrame: Pandas DataFrame containing the calculated optic flow signal. Has the following columns: 'start', 'end', 'avg_displacement_x', 'avg_displacement_y', 'angle'. 
+        """
         timestamps_for_optic_flow = self.video.get_timestamps_in_interval(
-            start_timestamp, end_timestamp)
+            start_time, end_time)
         requested_optic_flow = dict(start=[], end=[], avg_displacement_x=[
         ], avg_displacement_y=[], angle=[])
         for ts1, ts2 in zip(timestamps_for_optic_flow[:-1], timestamps_for_optic_flow[1:]):
-            if self._optic_flow_already_calculated(ts1, ts2):
+            if self._is_optic_flow_already_calculated(ts1, ts2):
                 flow = self._retrieve_optic_flow(ts1, ts2)
             else:
                 frame1, frame2 = self.video.get_frame_by_timestamp(ts1), self.video.get_frame_by_timestamp(ts2)
@@ -50,10 +63,10 @@ class OpticFlowCalculatorBase(ABC):
         self.optic_flow_result.drop_duplicates(subset=['start','end'], keep='last', inplace=True)
         self.optic_flow_result.sort_values(by=['start'], inplace=True, ignore_index=True)
         if output_file:
-            self.write_to_csv(output_file)
+            self.write_to_csv(output_file, requested_optic_flow)
         return requested_optic_flow
 
-    def _optic_flow_already_calculated(self, start_timestamp, end_timestamp):
+    def _is_optic_flow_already_calculated(self, start_timestamp, end_timestamp):
         return not self.optic_flow_result[(self.optic_flow_result['start'] == start_timestamp) & (self.optic_flow_result['end'] == end_timestamp)].empty
 
     def _retrieve_optic_flow(self, ts1, ts2):
@@ -65,8 +78,14 @@ class OpticFlowCalculatorBase(ABC):
     def _calculate_optical_flow_between_frames(self, first_frame, second_frame) -> dict:
         return
 
-    def write_to_csv(self,output_file):
-        optic_flow_data = self.optic_flow_result
+    def write_to_csv(self,output_file, optic_flow_data=None):
+        """Method to write the optic flow data to a csv file. If the file already exists, the data is appended to it, duplicates are removed and the file is sorted by the 'start' column to ensure the data is in chronological order.
+        Args:
+            output_file (str): Path to a csv file to store the calculated optic flow signal.
+            optic_flow_data (DataFrame, optional): Pandas DataFrame containing an optic flow signal. Defaults to None. If not specified, the optic flow signal stored in optic_flow_result attribute is used.
+        """
+        if optic_flow_data is None:
+            optic_flow_data = self.optic_flow_result
         if Path(output_file).exists():
             print('File already exists, appending to it') 
             optic_flow_file = pd.read_csv(output_file, dtype={'start': np.float32, 'end': np.float32, 'avg_displacement_x': np.float32, 'avg_displacement_y': np.float32, 'angle': np.float32})
@@ -77,6 +96,12 @@ class OpticFlowCalculatorBase(ABC):
 
 
 class OpticFlowCalculatorLK(OpticFlowCalculatorBase):
+    """ Class to calculate optic flow using the Lucas-Kanade method. Backward and forward flow are calculated and compared to ensure the accuracy of points found in the forward flow.
+
+    Args:
+        video_dir (str): Path to the video file.
+        grid_spacing (int, optional): Spacing between grid points to track. Defaults to 50. The smaller the spacing, the more points are tracked and the more time expensive the calculation is.
+    """
     def __init__(self, video_dir, grid_spacing=50):
         super().__init__(video_dir)
         self.grid_spacing = grid_spacing
@@ -105,6 +130,11 @@ class OpticFlowCalculatorLK(OpticFlowCalculatorBase):
 
 
 class OpticFlowCalculatorFarneback(OpticFlowCalculatorBase):
+    """ Class to calculate dense optic flow using the  Gunnar Farneback's algorithm.
+
+    Args:
+        video_dir (str): Path to the video file.
+    """
     def __init__(self, video_dir):
         super().__init__(video_dir)
         self.farneback_params = dict(

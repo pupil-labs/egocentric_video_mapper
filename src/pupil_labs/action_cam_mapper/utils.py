@@ -3,6 +3,7 @@ import imageio.v3 as iio
 import numpy as np
 import pandas as pd
 from pathlib import Path
+import pupil_labs.video as plv
 
 
 class VideoHandler():
@@ -19,10 +20,10 @@ class VideoHandler():
     
     @property
     def height(self):
-        return iio.improps(self.video_dir, plugin="pyav").shape[1]
+        return plv.open(self.video_dir).streams.video[0].height#iio.improps(self.video_dir, plugin="pyav").shape[1]
     @property
     def width(self):
-        return iio.improps(self.video_dir, plugin="pyav").shape[2]
+        return plv.open(self.video_dir).streams.video[0].width
     
     @property
     def fps(self):
@@ -36,24 +37,22 @@ class VideoHandler():
         return self._timestamps
     
     def get_timestamps(self):
-        with av.open(self.video_dir) as container:
-            video = container.streams.video[0]
+        with plv.open(self.video_dir) as container:
+            video = container.streams[0]
             if video.type != "video":
                 raise ValueError("No video stream found")
-            video_timestamps = [
-                packet.pts / video.time_base.denominator for packet in container.demux(video) if packet.pts is not None
-            ]
+            video_timestamps = np.asarray(video.pts)
+            video_timestamps = video_timestamps/video.time_base.denominator
         return np.asarray(video_timestamps, dtype=np.float32)
     
     def get_frame_by_timestamp(self, timestamp):
         timestamp = self.get_closest_timestamp(timestamp)
         timestamp_index = np.where(self.timestamps == timestamp)[0][0]
-        frame = iio.imread(
-            self.video_dir,
-                index=timestamp_index,
-                plugin="pyav",
-            )
-        return frame
+        with plv.open(self.video_dir) as container:
+            video = container.streams[0]
+            frame = video.frames[timestamp_index]
+            frame = frame.to_image()
+        return np.asarray(frame) 
         
     def get_timestamps_in_interval(self, start_time=0, end_time=np.inf):
         """Get all the timestamps between start_time and end_time. If no arguments are given, it returns all the timestamps.

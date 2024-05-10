@@ -1,9 +1,9 @@
-import av
-import imageio.v3 as iio
 import numpy as np
 import pandas as pd
 from pathlib import Path
+import logging
 import pupil_labs.video as plv
+
 
 
 class VideoHandler():
@@ -20,17 +20,10 @@ class VideoHandler():
     
     @property
     def height(self):
-        return plv.open(self.video_dir).streams.video[0].height#iio.improps(self.video_dir, plugin="pyav").shape[1]
+        return plv.open(self.video_dir).streams.video[0].height
     @property
     def width(self):
         return plv.open(self.video_dir).streams.video[0].width
-    
-    @property
-    def fps(self):
-        with av.open(self.video_dir) as container:
-            video = container.streams.video[0]
-            average_rate=video.average_rate
-        return average_rate.numerator/average_rate.denominator
     
     @property
     def timestamps(self):
@@ -47,9 +40,10 @@ class VideoHandler():
     
     def get_frame_by_timestamp(self, timestamp):
         timestamp = self.get_closest_timestamp(timestamp)
-        timestamp_index = np.where(self.timestamps == timestamp)[0][0]
+        timestamp_index = int(np.where(self.timestamps == timestamp)[0][0])
         with plv.open(self.video_dir) as container:
             video = container.streams[0]
+            video.logger.setLevel(logging.ERROR)
             frame = video.frames[timestamp_index]
             frame = frame.to_image()
         return np.asarray(frame) 

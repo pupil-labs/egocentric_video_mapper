@@ -109,6 +109,4 @@ def write_worldtimestamp_csv(world_timestamps, relative_timestamps, time_delay):
         action_world_timestamps.loc[(action_world_timestamps['timestamp [ns]']>=start_record)&(action_world_timestamps['timestamp [ns]']<end_record), 'record id'] = record
     action_world_timestamps.loc[(action_world_timestamps['record id'].isnull()) & (action_world_timestamps['timestamp [ns]']<first_ts), 'record id'] = world_timestamps.loc[world_timestamps['timestamp [ns]' == first_ts]['record id']].values[0]
     action_world_timestamps.loc[(action_world_timestamps['record id'].isnull()) & (action_world_timestamps['timestamp [ns]']>=last_ts), 'record id'] = world_timestamps.loc[world_timestamps['timestamp [ns]' == last_ts]['record id']].values[0]
-    
-    action_world_timestamps = pd.DataFrame({"world_timestamps": action_timestamps})
     action_world_timestamps.to_csv("action_camera_world_timestamps.csv", index=False)

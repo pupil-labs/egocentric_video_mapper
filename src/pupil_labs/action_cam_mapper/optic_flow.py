@@ -59,7 +59,7 @@ class OpticFlowCalculatorBase(ABC):
         requested_optic_flow = pd.DataFrame.from_dict(
             requested_optic_flow, orient='columns')
         self.optic_flow_result = pd.concat(
-            [self.optic_flow_result, requested_optic_flow], ignore_index=True)
+            [self.optic_flow_result if not self.optic_flow_result.empty else None, requested_optic_flow], ignore_index=True)
         self.optic_flow_result.drop_duplicates(subset=['start','end'], keep='last', inplace=True)
         self.optic_flow_result.sort_values(by=['start'], inplace=True, ignore_index=True)
         if output_file:

@@ -20,10 +20,15 @@ class VideoHandler():
     
     @property
     def height(self):
-        return plv.open(self.video_dir).streams.video[0].height
+        with plv.open(self.video_dir) as container:
+            video = container.streams.video[0]
+            return video.height
+
     @property
     def width(self):
-        return plv.open(self.video_dir).streams.video[0].width
+        with plv.open(self.video_dir) as container:
+            video = container.streams.video[0]
+            return video.width
     
     @property
     def timestamps(self):

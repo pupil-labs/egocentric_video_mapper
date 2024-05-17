@@ -23,7 +23,7 @@ class LOFTRImageMatcher(ImageMatcher):
 
     def get_correspondences(self, neon_image, action_image, neon_point=None):
         action_tensor, action_scaled2original = self._preprocess_image(action_image)
-        neon_image, patch_corners = self._get_image_patch(neon_image, neon_point) if neon_point else neon_image.copy()
+        neon_image, patch_corners = self._get_image_patch(neon_image, neon_point) if neon_point is not None else neon_image.copy()
         neon_tensor, neon_scaled2original = self._preprocess_image(neon_image)
         input_dict = {
             "image0": neon_tensor,
@@ -36,33 +36,34 @@ class LOFTRImageMatcher(ImageMatcher):
         for k in correspondences.keys():
             correspondences[k]=correspondences[k].cpu().numpy()
         correspondences=self._rescale_correspondences(correspondences, neon_scaled2original, action_scaled2original)
-        correspondences['keypoints0']+=patch_corners[0]
+        correspondences['keypoints0']=correspondences['keypoints0']+patch_corners[0]
         return correspondences
 
     def _preprocess_image(self, image):
         image = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
         scaled_image = cv.resize(image, (round(540*image.shape[1]/image.shape[0]), 540)) 
-        ratio_scaled2image = (image.shape[1]/scaled_image.shape[1] , image.shape[0]/scaled_image.shape[0])
+        ratio_scaled2image = (image.shape[1]/scaled_image.shape[1] , 
+                            image.shape[0]/scaled_image.shape[0])
         scaled_image = self.transform(scaled_image) 
         scaled_image = torch.unsqueeze(scaled_image, dim=0)
         return scaled_image, ratio_scaled2image
 
     def _get_image_patch(self, image, point):
-        if point[0] < self.patch_size/2:
+        if point[0] < self.patch_size//2:
             x_min = 0
             x_max = self.patch_size
-        elif point[0] < image.shape[1] - self.patch_size/2:
-            x_min = point[0] - self.patch_size/2
-            x_max = point[0] + self.patch_size/2
+        elif point[0] < image.shape[1] - self.patch_size//2:
+            x_min = point[0] - self.patch_size//2
+            x_max = point[0] + self.patch_size//2
         else:
             x_min = image.shape[1] - self.patch_size
             x_max = image.shape[1]
         if point[1] < self.patch_size/2:
             y_min = 0
             y_max = self.patch_size
-        elif point[1] < image.shape[0] - self.patch_size/2:
-            y_min = point[1] - self.patch_size/2
-            y_max = point[1] + self.patch_size/2
+        elif point[1] < image.shape[0] - self.patch_size//2:
+            y_min = point[1] - self.patch_size//2
+            y_max = point[1] + self.patch_size//2
         else:
             y_min = image.shape[0] - self.patch_size
             y_max = image.shape[0]

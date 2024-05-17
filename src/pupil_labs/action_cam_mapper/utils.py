@@ -71,6 +71,25 @@ class VideoHandler():
             float: Closest video timestamp to the given time, it can be before or after the given time.
         """
         return self.timestamps[np.argmin(np.abs(self.timestamps - time))]
+    
+    def get_timestamps_around_time(self,time):
+        """Get the video timestamps before and after the given time.
+
+        Args:
+            time (float): Time in seconds
+
+        Returns:
+            tuple: Tuple with the timestamps before and after the given time.
+        """
+        closest_timestamp = self.get_closest_timestamp(time)
+        #si la closest_timestamp es mayor que el tiempo dado, entonces el timestamp anterior es el anterior al closest_timestamp
+        if closest_timestamp > time:
+            previous_timestamp = self.timestamps[np.where(self.timestamps == closest_timestamp)[0][0]-1]
+            next_timestamp = closest_timestamp
+        else:
+            previous_timestamp = closest_timestamp
+            next_timestamp = self.timestamps[np.where(self.timestamps == closest_timestamp)[0][0]+1]
+        return previous_timestamp, next_timestamp
 
 
 

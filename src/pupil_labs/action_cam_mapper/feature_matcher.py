@@ -12,7 +12,7 @@ class ImageMatcher(ABC):
 
 
 class LOFTRImageMatcher(ImageMatcher):
-    def _init_(self, location, gpu_num=None, patch_size=1000):
+    def __init__(self, location, gpu_num=None, patch_size=1000):
         if gpu_num is None:
             self.device= torch.device('cpu')
         else:
@@ -78,9 +78,9 @@ class LOFTRImageMatcher(ImageMatcher):
 
 
 class ImageMatcherFactory:
-    def __init__(self):
-        pass
-        self.matcher = None
+    def __init__(self,image_matcher, image_matcher_parameters):
+        if image_matcher.upper() == 'LOFTR':
+            self.matcher = LOFTRImageMatcher(image_matcher_parameters['location'], image_matcher_parameters['gpu_num'], image_matcher_parameters['patch_size'])
         # does all the ifs, switchcases and param settings specific to each matcher to instantiate the desired image matcher
 
     def get_matcher(self):

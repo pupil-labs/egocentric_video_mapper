@@ -22,13 +22,13 @@ class LOFTRImageMatcher(ImageMatcher):
         self.transform=transforms.Compose([transforms.ToTensor()])
         self.patch_corners=None
 
-    def get_correspondences(self, neon_image, action_image, neon_point=None):
-        action_tensor, action_scaled2original = self._preprocess_image(action_image)
-        neon_image, self.patch_corners = self._get_image_patch(neon_image, neon_point) if neon_point is not None else neon_image.copy()
-        neon_tensor, neon_scaled2original = self._preprocess_image(neon_image)
+    def get_correspondences(self, src_image, dst_image, neon_point=None):
+        dst_tensor, dst_scaled2original = self._preprocess_image(dst_image)
+        src_image, self.patch_corners = self._get_image_patch(src_image, neon_point) if neon_point is not None else src_image.copy()
+        src_tensor, src_scaled2original = self._preprocess_image(src_image)
         input_dict = {
-            "image0": neon_tensor,
-            "image1": action_tensor
+            "image0": src_tensor,
+            "image1": dst_tensor
         }
         for k in input_dict.keys():
             input_dict[k]=input_dict[k].to(self.device)
@@ -36,7 +36,7 @@ class LOFTRImageMatcher(ImageMatcher):
             correspondences = self.image_matcher(input_dict)
         for k in correspondences.keys():
             correspondences[k]=correspondences[k].cpu().numpy()
-        correspondences=self._rescale_correspondences(correspondences, neon_scaled2original, action_scaled2original)
+        correspondences=self._rescale_correspondences(correspondences, src_scaled2original, dst_scaled2original)
         correspondences['keypoints0']=correspondences['keypoints0']+self.patch_corners[0]
         return correspondences
 
@@ -57,7 +57,7 @@ class LOFTRImageMatcher(ImageMatcher):
         return image_patch, patch_corners
     
     @staticmethod
-    def _get_patch_corners(self, patch_size, point,image_shape):
+    def _get_patch_corners(patch_size, point,image_shape):
         if point[0] < patch_size//2:
             x_min = 0
             x_max = patch_size
@@ -78,9 +78,9 @@ class LOFTRImageMatcher(ImageMatcher):
             y_max = image_shape[0]
         return  np.array([[x_min,y_min],[x_min,y_max],[x_max,y_max],[x_max,y_min]], dtype=np.int32)
     
-    def _rescale_correspondences(self,correspondences, neon_ratio, action_ratio):
-        correspondences['keypoints0'] = correspondences['keypoints0'] * neon_ratio
-        correspondences['keypoints1'] = correspondences['keypoints1'] * action_ratio
+    def _rescale_correspondences(self,correspondences, src_ratio, dst_ratio):
+        correspondences['keypoints0'] = correspondences['keypoints0'] * src_ratio
+        correspondences['keypoints1'] = correspondences['keypoints1'] * dst_ratio
         return correspondences
 
 

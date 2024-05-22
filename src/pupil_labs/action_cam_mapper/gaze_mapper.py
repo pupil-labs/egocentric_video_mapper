@@ -103,8 +103,12 @@ class ActionCameraGazeMapper:
     def _estimate_transformation(self, correspondences):
         neon_pts = np.float32(correspondences['keypoints0']).reshape(-1, 1, 2)
         action_pts = np.float32(correspondences['keypoints1']).reshape(-1, 1, 2)
+        prev_transformation = self.transformation
         try:
             self.transformation, mask = cv.findHomography(neon_pts, action_pts, cv.RANSAC, 5.0)
+            if mask.ravel().sum() ==0:
+                print('Not enough inliers, using previous transformation')
+                self.transformation = prev_transformation
         except cv.error:
             print('Homography could not be estimated, using previous transformation')
 

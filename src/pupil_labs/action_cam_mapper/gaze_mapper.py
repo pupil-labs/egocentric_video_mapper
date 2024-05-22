@@ -34,6 +34,9 @@ class ActionCameraGazeMapper:
         self.image_matcher = ImageMatcherFactory(
             image_matcher, image_matcher_parameters).get_matcher()
         self.patch_size = patch_size
+        self.transformation = np.array([[self.action_video.width/self.neon_video.width, 0, 0], 
+                                        [0, self.action_video.height/self.neon_video.height, 0],
+                                        [0, 0, 1]], dtype=np.float32)
 
     def _create_action_gaze(self):
         """Creates a DataFrame with the same formatting as the neon_gaze DataFrame, the 'gaze x [px]',
@@ -49,7 +52,8 @@ class ActionCameraGazeMapper:
         return action_dataframe
 
     def map_gaze(self, saving_path=None):
-        for gaze_world_ts in self.action_gaze['timestamp [ns]'].values:
+        for i, gaze_world_ts in enumerate(self.action_gaze['timestamp [ns]'].values):
+            print(i)
             gaze_neon=self.neon_gaze.loc[self.neon_gaze['timestamp [ns]']==gaze_world_ts,['gaze x [px]', 'gaze y [px]']].values.reshape(1,2)
             gaze_relative_timestamp = (gaze_world_ts - self.neon_worldtimestamps['timestamp [ns]'].values[0])/1e9
             neon_timestamp = self.neon_video.get_closest_timestamp(gaze_relative_timestamp)
@@ -63,7 +67,10 @@ class ActionCameraGazeMapper:
             else:
                 gaze_action_camera = self._map_one_gaze(
                     gaze_neon, neon_timestamp, action_timestamp)
+            
+            print(f'Gaze ({gaze_neon}) at {gaze_world_ts} mapped to {gaze_action_camera}')
             self.action_gaze.loc[self.action_gaze['timestamp [ns]']==gaze_world_ts, ['gaze x [px]', 'gaze y [px]']] = gaze_action_camera
+        
         if saving_path is None:
             self.action_gaze.to_csv(Path(self.neon_video.video_dir).parent/'action_gaze.csv', index=False)
         else:
@@ -76,23 +83,30 @@ class ActionCameraGazeMapper:
         action_frame = self.action_video.get_frame_by_timestamp(action_timestamp)
         neon_frame = self.neon_video.get_frame_by_timestamp(neon_timestamp)
         if np.all(neon_frame==100):
+            print(f'Neon frame at {neon_timestamp} is all gray')
             return gaze_coordinates
         patch_corners = self._get_patch_corners(self.patch_size, gaze_coordinates, neon_frame.shape)
         correspondences = self.image_matcher.get_correspondences(
             neon_frame, action_frame, patch_corners)
-        correspondences, _ = self._filter_correspondences(correspondences.copy(), gaze_coordinates, neon_frame.shape)
-        gaze_in_action_camera = self._estimate_transformation(
-            correspondences, gaze_coordinates)
+        correspondences, new_patch_corners = self._filter_correspondences(correspondences.copy(), gaze_coordinates, neon_frame.shape)
+        print(f'Number of correspondences: {len(correspondences["keypoints0"])} at {abs(new_patch_corners[0,0]-new_patch_corners[2,0])} patch size')
+        gaze_in_action_camera=self._transform_point(correspondences,gaze_coordinates)
         return gaze_in_action_camera
 
-    def _estimate_transformation(self, correspondences, point_to_be_transformed):
-        neon_pts = np.float32(correspondences['keypoints0']).reshape(-1, 1, 2)
-        action_pts = np.float32(correspondences['keypoints1']).reshape(-1, 1, 2)
-        self.transformation, mask = cv.findHomography(neon_pts, action_pts, cv.RANSAC, 5.0)
+    def _transform_point(self, correspondences, point_to_be_transformed):
+        self._estimate_transformation(correspondences)
         point_to_be_transformed = np.float32(point_to_be_transformed).reshape(-1, 1, 2)
         transformed_point = cv.perspectiveTransform(
             point_to_be_transformed, self.transformation)
         return transformed_point.reshape(1,2)
+    
+    def _estimate_transformation(self, correspondences):
+        neon_pts = np.float32(correspondences['keypoints0']).reshape(-1, 1, 2)
+        action_pts = np.float32(correspondences['keypoints1']).reshape(-1, 1, 2)
+        try:
+            self.transformation, mask = cv.findHomography(neon_pts, action_pts, cv.RANSAC, 5.0)
+        except cv.error:
+            print('Homography could not be estimated, using previous transformation')
 
     def _filter_correspondences(self, correspondences, point_to_be_transformed, image_shape):
         prev_patch_size = self.patch_size

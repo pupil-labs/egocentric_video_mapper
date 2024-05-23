@@ -44,23 +44,24 @@ def main_mapper(action_vid_path,
                 action_timestamps,
                 neon_gaze_csv,
                 name,
-                scene_location='indoor',
+                matcher,
                 ):
-    param={'location':scene_location, 'gpu_num':0}
+    param=matcher['parameters']
+    print(f'Using {matcher["choice"]} with parameters: {param}')
     mapper = ActionCameraGazeMapper(neon_gaze_csv=neon_gaze_csv,
         neon_video_dir=neon_vid_path,
         action_video_dir=action_vid_path,
         neon_worldtimestamps=neon_timestamps,
         action_worldtimestamps=action_timestamps,
-        image_matcher='loftr',
+        image_matcher=matcher['choice'],
         image_matcher_parameters=param,
         neon_opticflow_csv=f'/users/sof/optic_flow/{name}/{name}_neon_lk_of.csv',
         action_opticflow_csv=f'/users/sof/optic_flow/{name}/{name}_action_lk_of.csv',
         patch_size=1000)
     Path(f'/users/sof/mapped_gaze/{name}').mkdir(parents=True, exist_ok=True)
-    mapper.map_gaze(saving_path=f'/users/sof/mapped_gaze/{name}/{name}_gaze_mapping.csv')
+    mapper.map_gaze(saving_path=f'/users/sof/mapped_gaze/{name}/{name}_gaze_mapping_{matcher["choice"]}.csv')
 
-def main(action_vid_path, neon_timeseries_dir, optic_flow_choice='lk', location='indoor'):
+def main(action_vid_path, neon_timeseries_dir, image_matcher,optic_flow_choice='lk',render_video=False):
     neon_vid_path=get_file(neon_timeseries_dir, file_suffix='.mp4')
     neon_timestamps=neon_timeseries_dir+'/world_timestamps.csv'
     neon_gaze_csv=neon_timeseries_dir+'/gaze.csv'
@@ -83,10 +84,22 @@ def main(action_vid_path, neon_timeseries_dir, optic_flow_choice='lk', location=
                 action_timestamps=action_timestamps,
                 neon_gaze_csv=neon_gaze_csv,
                 name=name,
-                scene_location=location,
+                matcher=image_matcher
                 )
+    #Step 4 (Optional): Render simultaneous videos with gaze in both
+    if render_video:
+        pass
+
 
 if __name__ == "__main__":
     action_vid_path='/users/sof/gaze_mapping/raw_videos/InstaVid/wearingNeon_2m/AVun_20240216_160246_055.mp4'
     neon_timeseries_path='/users/sof/gaze_mapping/raw_videos/Neon/Raw_Data/2024-02-16_wearingNeon/2024-02-16_15-58-13-6310bec3/'
-    main(action_vid_path=action_vid_path, neon_timeseries_dir=neon_timeseries_path, optic_flow_choice='lk', location='indoor')
+    param_lg = {'num_features':2048,'gpu_num':0}
+    param_loftr = {'location':'indoor', 'gpu_num':0}
+    image_matcher_loftr={'choice':'loftr','parameters':param_loftr}
+    image_matcher_lg={'choice':'disk_lightglue','parameters':param_lg}
+    main(action_vid_path=action_vid_path, 
+        neon_timeseries_dir=neon_timeseries_path, 
+        optic_flow_choice='lk', 
+        image_matcher=image_matcher_lg , 
+        render_video=False)

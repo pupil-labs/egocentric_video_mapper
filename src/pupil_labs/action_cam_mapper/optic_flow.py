@@ -88,7 +88,7 @@ class OpticFlowCalculatorBase(ABC):
             optic_flow_data = self.optic_flow_result
         if Path(output_file).exists():
             print('File already exists, appending to it') 
-            optic_flow_file = pd.read_csv(output_file, dtype={'start': np.float32, 'end': np.float32, 'avg_displacement_x': np.float32, 'avg_displacement_y': np.float32, 'angle': np.float32})
+            optic_flow_file = pd.read_csv(output_file, dtype=np.float32)
             optic_flow_data = pd.concat([optic_flow_file, optic_flow_data],ignore_index=True)
         optic_flow_data.drop_duplicates(subset=['start','end'], keep='last', inplace=True)
         optic_flow_data.sort_values(by=['start'], inplace=True, ignore_index=True)

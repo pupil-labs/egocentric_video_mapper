@@ -20,15 +20,15 @@ class ActionCameraGazeMapper:
         action_opticflow_csv=None,
         patch_size=1000,
     ) -> None:
-        self.neon_video = VideoHandler(neon_video_dir)
+        self.neon_video = VideoHandler(neon_video_dir) #name consistency
         self.action_video = VideoHandler(action_video_dir)
         self.neon_worldtimestamps = pd.read_csv(neon_worldtimestamps)
         self.action_worldtimestamps = pd.read_csv(
             action_worldtimestamps)
         self.action2neon_offset = self.action_worldtimestamps['timestamp [ns]'].values[0] - self.neon_worldtimestamps['timestamp [ns]'].values[0]
         self.action2neon_offset/=1e9
-        self.neon_opticflow = pd.read_csv(neon_opticflow_csv,dtype={'start': np.float32, 'end': np.float32, 'avg_displacement_x': np.float32, 'avg_displacement_y': np.float32, 'angle': np.float32})
-        self.action_opticflow = pd.read_csv(action_opticflow_csv,dtype={'start': np.float32, 'end': np.float32, 'avg_displacement_x': np.float32, 'avg_displacement_y': np.float32, 'angle': np.float32})
+        self.neon_opticflow = pd.read_csv(neon_opticflow_csv,dtype=np.float32)
+        self.action_opticflow = pd.read_csv(action_opticflow_csv,dtype=np.float32)
         self.neon_gaze = pd.read_csv(neon_gaze_csv)  # <- at 200Hz
         self.action_gaze = self._create_action_gaze()
         self.image_matcher = ImageMatcherFactory(
@@ -52,6 +52,7 @@ class ActionCameraGazeMapper:
         return action_dataframe
 
     def map_gaze(self, saving_path=None):
+
         for i, gaze_world_ts in enumerate(self.action_gaze['timestamp [ns]'].values):
             print(i)
             gaze_neon=self.neon_gaze.loc[self.neon_gaze['timestamp [ns]']==gaze_world_ts,['gaze x [px]', 'gaze y [px]']].values.reshape(1,2)
@@ -101,6 +102,7 @@ class ActionCameraGazeMapper:
         return transformed_point.reshape(1,2)
     
     def _estimate_transformation(self, correspondences):
+        # returns callable
         neon_pts = np.float32(correspondences['keypoints0']).reshape(-1, 1, 2)
         action_pts = np.float32(correspondences['keypoints1']).reshape(-1, 1, 2)
         prev_transformation = self.transformation
@@ -108,6 +110,7 @@ class ActionCameraGazeMapper:
             self.transformation, mask = cv.findHomography(neon_pts, action_pts, cv.RANSAC, 5.0)
             if mask.ravel().sum() ==0:
                 print('Not enough inliers, using previous transformation')
+                # may be better to not do this, rather just not map the gaze and leave it empty
                 self.transformation = prev_transformation
         except cv.error:
             print('Homography could not be estimated, using previous transformation')

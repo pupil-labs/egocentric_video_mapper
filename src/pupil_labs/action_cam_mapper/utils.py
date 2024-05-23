@@ -23,7 +23,6 @@ class VideoHandler():
     def height(self):
         return self.video_container.streams.video[0].height
         
-
     @property
     def width(self):
         return self.video_container.streams.video[0].width
@@ -31,6 +30,10 @@ class VideoHandler():
     @property
     def timestamps(self):
         return self._timestamps
+    
+    @property
+    def fps(self):
+        return self.video_container.streams.video[0].average_rate.numerator/self.video_container.streams.video[0].average_rate.denominator
     
     def get_timestamps(self):
         video = self.video_container.streams[0]

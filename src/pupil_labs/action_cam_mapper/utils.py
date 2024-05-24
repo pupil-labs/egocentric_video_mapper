@@ -7,25 +7,18 @@ import pupil_labs.video as plv
 
 
 class VideoHandler():
-    """Class to wrap video files and extract useful information from them.
-
-    Args:
-        video_dir (str): Path to the video file.
-    """
-    
-    def __init__(self, video_dir):
-        self.video_dir = video_dir
-        self.video_container = plv.open(video_dir)
+    def __init__(self, video_path):
+        self.path = video_path
+        self.video_stream = self.open_video()
         self._timestamps = self.get_timestamps()
         
-    
     @property
     def height(self):
-        return self.video_container.streams.video[0].height
+        return self.video_stream.height
         
     @property
     def width(self):
-        return self.video_container.streams.video[0].width
+        return self.video_stream.width
     
     @property
     def timestamps(self):
@@ -33,59 +26,46 @@ class VideoHandler():
     
     @property
     def fps(self):
-        return self.video_container.streams.video[0].average_rate.numerator/self.video_container.streams.video[0].average_rate.denominator
+        return self.video_stream.average_rate.numerator/self.video_stream.average_rate.denominator
     
+    def open_video(self):
+        container = plv.open(self.path)
+        video_stream = container.streams.video[0]
+        if video_stream.type != "video":
+            raise ValueError(f"No video stream found in {self.path}")
+        video_stream.logger.setLevel(logging.ERROR)
+        return video_stream
+    
+    def close_video(self):
+        self.video_stream.close()
+
     def get_timestamps(self):
-        video = self.video_container.streams[0]
-        if video.type != "video":
-            raise ValueError("No video stream found")
-        video_timestamps = np.asarray(video.pts)
-        video_timestamps = video_timestamps/video.time_base.denominator
+        video_timestamps = np.asarray(self.video_stream.pts)
+        video_timestamps = video_timestamps/self.video_stream.time_base.denominator
         return np.asarray(video_timestamps, dtype=np.float32)
     
     def get_frame_by_timestamp(self, timestamp):
-        timestamp = self.get_closest_timestamp(timestamp)
-        timestamp_index = int(np.where(self.timestamps == timestamp)[0][0])
-        video = self.video_container.streams[0]
-        video.logger.setLevel(logging.ERROR)
-        frame = video.frames[timestamp_index]
+        timestamp, timestamp_index = self.get_closest_timestamp(timestamp)
+        frame = self.video_stream.frames[timestamp_index]
         frame = frame.to_image()
         return np.asarray(frame) 
         
     def get_timestamps_in_interval(self, start_time=0, end_time=np.inf):
-        """Get all the timestamps between start_time and end_time. If no arguments are given, it returns all the timestamps.
-
-        Args:
-            start_time (float): Starting time in seconds, must be smaller than end_time. Does not necessarily correspond to the video timestamps. Defaults to 0.
-            end_time (float): Ending time in seconds, must be larger than start_time. Does not necessarily correspond to the video timestamps. Defaults to np.inf.
-
-        Returns:
-            ndarray: Numpy array with all the video timestamps contained between start_time and end_time.
-        """
         assert (start_time < end_time), f"Start time ({start_time} s) must be smaller than end time ({end_time} s)"
         return self.timestamps[(self.timestamps >= start_time) & (self.timestamps <= end_time)]
     
     def get_closest_timestamp(self, time):
-        """Get the closest video timestamp to the given time.
-        Args:
-            time (float): Time in seconds
-
-        Returns:
-            float: Closest video timestamp to the given time, it can be before or after the given time.
-        """
-        return self.timestamps[np.argmin(np.abs(self.timestamps - time))]
+        after_index = np.searchsorted(self.timestamps, time)
+        before_index= after_index - 1
+        ts_after = self.timestamps[after_index]
+        ts_before = self.timestamps[before_index]
+        if np.abs(ts_after - time) < np.abs(ts_before - time):
+            return ts_after, int(after_index)
+        else:
+            return ts_before, int(before_index)
     
-    def get_timestamps_around_time(self,time):
-        """Get the video timestamps before and after the given time.
-
-        Args:
-            time (float): Time in seconds
-
-        Returns:
-            tuple: Tuple with the timestamps before and after the given time.
-        """
+    def get_surrounding_timestamps(self,time):
         closest_timestamp = self.get_closest_timestamp(time)
-        #si la closest_timestamp es mayor que el tiempo dado, entonces el timestamp anterior es el anterior al closest_timestamp
         if closest_timestamp > time:
             previous_timestamp = self.timestamps[np.where(self.timestamps == closest_timestamp)[0][0]-1]
             next_timestamp = closest_timestamp
@@ -96,7 +76,7 @@ class VideoHandler():
 
 
 
-def write_worldtimestamp_csv(world_timestamps_dir, relative_timestamps, time_delay):
+def write_worldtimestamp_csv(world_timestamps_path, relative_timestamps, time_delay):
     """Function that creates a world timestamp csv file for action camera recording. The csv file is saved in the same directory as the world_timestamps.csv of the Neon recording.
 
     Args:
@@ -104,7 +84,7 @@ def write_worldtimestamp_csv(world_timestamps_dir, relative_timestamps, time_del
         relative_timestamps (ndarray): Timestamps of the action camera recording, obtained from the metadata of the video file.
         time_delay (float): Time delay between the action camera and the Neon Scene camera in seconds. 
     """
-    world_timestamps = pd.read_csv(world_timestamps_dir)
+    world_timestamps = pd.read_csv(world_timestamps_path)
     columns_for_mapping = world_timestamps.columns
     action_timestamps = (relative_timestamps + time_delay)/1e-9
     action_timestamps = np.int64(action_timestamps)
@@ -128,5 +108,5 @@ def write_worldtimestamp_csv(world_timestamps_dir, relative_timestamps, time_del
         action_world_timestamps.loc[(action_world_timestamps['timestamp [ns]']>=start_recording)&(action_world_timestamps['timestamp [ns]']<end_recording), 'recording id'] = recording
     action_world_timestamps.loc[(action_world_timestamps['recording id'].isnull()) & (action_world_timestamps['timestamp [ns]']<first_ts), 'recording id'] = world_timestamps.loc[world_timestamps['timestamp [ns]'] == first_ts,'recording id'].values[0]
     action_world_timestamps.loc[(action_world_timestamps['recording id'].isnull()) & (action_world_timestamps['timestamp [ns]']>=last_ts), 'recording id'] = world_timestamps.loc[world_timestamps['timestamp [ns]']== last_ts,'recording id'].values[0]
-    action_world_timestamps.to_csv(f"{str(Path(world_timestamps_dir).parent)}/action_camera_world_timestamps.csv", index=False)
-    print(f"World timestamps for action camera recording saved at {Path(world_timestamps_dir).parent}/action_camera_world_timestamps.csv")
+    action_world_timestamps.to_csv(f"{str(Path(world_timestamps_path).parent)}/action_camera_world_timestamps.csv", index=False)
+    print(f"World timestamps for action camera recording saved at {Path(world_timestamps_path).parent}/action_camera_world_timestamps.csv")

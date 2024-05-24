@@ -80,7 +80,7 @@ def write_worldtimestamp_csv(timestamps_path, aligned_relative_timestamps):
     """Function that creates a world timestamp csv file for action camera recording. The csv file is saved in the same directory as the world_timestamps.csv of the Neon recording.
 
     Args:
-        timestamps_dir (str): Path to the world_timestamps.csv of the Neon recording
+        timestamps_path (str): Path to the world_timestamps.csv of the Neon recording
         aligned_relative_timestamps (ndarray): Timestamps of the action camera recording, obtained from the metadata of the video file. This function assumes that the timestamps are already aligned with the Neon recording timestamps.  
     """
     world_timestamps = pd.read_csv(timestamps_path)

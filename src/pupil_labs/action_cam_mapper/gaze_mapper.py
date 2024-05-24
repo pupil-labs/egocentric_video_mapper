@@ -73,7 +73,7 @@ class ActionCameraGazeMapper:
             self.action_gaze.loc[self.action_gaze['timestamp [ns]']==gaze_world_ts, ['gaze x [px]', 'gaze y [px]']] = gaze_action_camera
         
         if saving_path is None:
-            self.action_gaze.to_csv(Path(self.neon_video.video_dir).parent/'action_gaze.csv', index=False)
+            self.action_gaze.to_csv(Path(self.neon_video.path).parent/'action_gaze.csv', index=False)
         else:
             self.action_gaze.to_csv(saving_path, index=False)
 

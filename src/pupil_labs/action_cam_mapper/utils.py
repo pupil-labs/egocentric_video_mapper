@@ -86,8 +86,7 @@ def write_action_timestamp_csv(neon_timestamps_path, aligned_relative_action_ts)
     neon_timestamps_df = pd.read_csv(neon_timestamps_path)
     columns_for_mapping = neon_timestamps_df.columns
 
-    action_timestamps = aligned_relative_action_ts/1e-9
-    action_timestamps = np.int64(action_timestamps)
+    action_timestamps =np.int64(aligned_relative_action_ts/1e-9)
     action_timestamps += neon_timestamps_df["timestamp [ns]"].iloc[0]
 
     action_timestamps_df = pd.DataFrame.from_dict({col:[None for _ in action_timestamps] for col in columns_for_mapping})

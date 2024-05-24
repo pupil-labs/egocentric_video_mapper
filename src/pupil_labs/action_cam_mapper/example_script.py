@@ -142,6 +142,7 @@ def main(action_vid_path, neon_timeseries_dir, output_dir, image_matcher,optic_f
             action_worldtimestamps_path=action_timestamps,
             action_gaze_paths_dict={image_matcher['choice']:action_gaze_csv},
             neon_video_path=neon_vid_path,
+            neon_worldtimestamps_path=neon_timestamps,
             neon_gaze_path=neon_gaze_csv,
             save_video_path=video_path
         )

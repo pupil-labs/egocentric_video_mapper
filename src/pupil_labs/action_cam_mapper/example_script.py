@@ -5,7 +5,7 @@ from optic_flow import OpticFlowCalculatorLK, OpticFlowCalculatorFarneback
 from utils import VideoHandler, write_worldtimestamp_csv
 from sync_videos import OffsetCalculator
 from gaze_mapper import ActionCameraGazeMapper
-from video_renderer import main as render_video
+from video_renderer import save_video 
 from pathlib import Path
 
 
@@ -100,7 +100,7 @@ def main_mapper(action_vid_path,
     return gaze_csv_path
 
 
-def main(action_vid_path, neon_timeseries_dir, output_dir, image_matcher,optic_flow_choice='lk',save_video=False):
+def main(action_vid_path, neon_timeseries_dir, output_dir, image_matcher,optic_flow_choice='lk',render_video=False):
 
     neon_vid_path=get_file(neon_timeseries_dir, file_suffix='.mp4')
     neon_timestamps=neon_timeseries_dir+'/world_timestamps.csv'
@@ -135,12 +135,12 @@ def main(action_vid_path, neon_timeseries_dir, output_dir, image_matcher,optic_f
                 optic_flow_choice=optic_flow_choice
                 )
     #Step 4 (Optional): Render simultaneous videos with gaze in both
-    if save_video:
-        video_path=Path(output_dir,f"Neon_Action_{image_matcher['choice']}_{optic_flow_choice}.mp4")
+    if render_video:
+        video_path=Path(output_dir,f"video_render/Neon_Action_{image_matcher['choice']}_{optic_flow_choice}.mp4")
         print(f'Rendering video')
-        render_video(action_video_path=action_vid_path,
+        save_video(action_video_path=action_vid_path,
             action_worldtimestamps_path=action_timestamps,
-            action_gaze_paths_dict={image_matcher['choice']:action_gaze_csv},
+            action_gaze_paths_dict={image_matcher['choice'].upper():action_gaze_csv},
             neon_video_path=neon_vid_path,
             neon_worldtimestamps_path=neon_timestamps,
             neon_gaze_path=neon_gaze_csv,
@@ -165,4 +165,4 @@ if __name__ == "__main__":
         output_dir=output_dir, 
         image_matcher=image_matcher_lg,
         optic_flow_choice='lk', 
-        save_video=False)
+        render_video=False)

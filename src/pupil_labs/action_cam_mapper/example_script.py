@@ -1,12 +1,36 @@
 import os
 import pandas as pd
+import numpy as np
 from optic_flow import OpticFlowCalculatorLK, OpticFlowCalculatorFarneback
 from utils import VideoHandler, write_worldtimestamp_csv
 from sync_videos import OffsetCalculator
 from gaze_mapper import ActionCameraGazeMapper
+from video_renderer import main as render_video
 from pathlib import Path
 
 
+def get_gaze_per_frame(gaze_file, video_timestamps):
+    """This function search for the gaze coordinates with the closest world timestamp to the video world timestamps and returns a list of coordinates for every frame in the video
+
+    Args:
+        gaze_file (str): Path to the gaze file associated to a video
+        video_timestamps (str): Path to the world timestamps to the frames in a video
+
+    Returns:
+        list_coords (list): A list containing the x,y coordinates for every entry in the video_timestamps
+    """
+
+    scene_timestamps = pd.read_csv(video_timestamps)
+    gaze_timestamps = pd.read_csv(gaze_file)
+    scene_ns = scene_timestamps['timestamp [ns]'].to_numpy()
+    gaze_ns = gaze_timestamps['timestamp [ns]'].to_numpy()
+    list_coords = []
+    for scene_time in scene_ns:
+        # matching scene timestamp to the smallest timestamp in gaze_ns that is greater than the scene timestamp, since gaze timestamping starts after world scene timestamping
+        gaze_indexing = np.argmin(np.abs(gaze_ns-scene_time))
+        coords = gaze_timestamps.iloc[gaze_indexing][['gaze x [px]', 'gaze y [px]']]
+        list_coords.append(coords.to_numpy())
+    return list_coords
 
 def get_file(folder_path, file_suffix='.mp4', required_in_name='0'):
     return [os.path.join(root, name)
@@ -53,6 +77,7 @@ def main_mapper(action_vid_path,
                 action_opticflow_csv,
                 output_dir,
                 matcher,
+                optic_flow_choice
                 ):
     output_dir=Path(output_dir,f'mapped_gaze/{matcher["choice"]}')
     Path(output_dir).mkdir(parents=True, exist_ok=True)
@@ -70,10 +95,12 @@ def main_mapper(action_vid_path,
         neon_opticflow_csv=neon_opticflow_csv,
         action_opticflow_csv=action_opticflow_csv,
         patch_size=1000)
-    
-    mapper.map_gaze(saving_path=Path(output_dir,'action_gaze.csv'))
+    gaze_csv_path = Path(output_dir,f"action_gaze_{optic_flow_choice}.csv")
+    mapper.map_gaze(saving_path=gaze_csv_path)
+    return gaze_csv_path
 
-def main(action_vid_path, neon_timeseries_dir, output_dir, image_matcher,optic_flow_choice='lk',render_video=False):
+
+def main(action_vid_path, neon_timeseries_dir, output_dir, image_matcher,optic_flow_choice='lk',save_video=False):
 
     neon_vid_path=get_file(neon_timeseries_dir, file_suffix='.mp4')
     neon_timestamps=neon_timeseries_dir+'/world_timestamps.csv'
@@ -96,7 +123,7 @@ def main(action_vid_path, neon_timeseries_dir, output_dir, image_matcher,optic_f
         raise FileNotFoundError(f'{action_timestamps} not created!')
     
     #Step 3: Map gaze
-    main_mapper(action_vid_path=action_vid_path,
+    action_gaze_csv=main_mapper(action_vid_path=action_vid_path,
                 neon_vid_path=neon_vid_path,
                 neon_timestamps=neon_timestamps,
                 action_timestamps=action_timestamps,
@@ -104,12 +131,20 @@ def main(action_vid_path, neon_timeseries_dir, output_dir, image_matcher,optic_f
                 neon_opticflow_csv=neon_of_path,
                 action_opticflow_csv=action_of_path,
                 output_dir=output_dir,
-                matcher=image_matcher
+                matcher=image_matcher,
+                optic_flow_choice=optic_flow_choice
                 )
     #Step 4 (Optional): Render simultaneous videos with gaze in both
-    if render_video:
-        pass
-
+    if save_video:
+        video_path=Path(output_dir,f"Neon_Action_{image_matcher['choice']}_{optic_flow_choice}.mp4")
+        print(f'Rendering video')
+        render_video(action_video_path=action_vid_path,
+            action_worldtimestamps_path=action_timestamps,
+            action_gaze_paths_dict={image_matcher['choice']:action_gaze_csv},
+            neon_video_path=neon_vid_path,
+            neon_gaze_path=neon_gaze_csv,
+            save_video_path=video_path
+        )
 
 if __name__ == "__main__":
     action_vid_path='/users/sof/gaze_mapping/raw_videos/InstaVid/wearingNeon_2m/AVun_20240216_160246_055.mp4'
@@ -129,4 +164,4 @@ if __name__ == "__main__":
         output_dir=output_dir, 
         image_matcher=image_matcher_lg,
         optic_flow_choice='lk', 
-        render_video=False)
+        save_video=False)

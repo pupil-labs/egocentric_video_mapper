@@ -50,13 +50,12 @@ def pad_images_height(image_1, image_2):
     return image_1, image_2
 
 
-def main(action_video_path,
+def view_video(action_video_path,
         action_worldtimestamps_path,
         action_gaze_paths_dict,
         neon_video_path,
         neon_worldtimestamps_path,
-        neon_gaze_path,
-        save_video_path=None):
+        neon_gaze_path):
     
     action_coords = {matcher:get_gaze_per_frame(gaze_file=path, video_timestamps=action_worldtimestamps_path) for matcher,path in action_gaze_paths_dict.items()}
     neon_gaze_coords_list = get_gaze_per_frame(
@@ -76,17 +75,10 @@ def main(action_video_path,
         neon_video.timestamps, neon_gaze_coords_list)}
     action_gaze_dict ={matcher:{t:gaze for t,gaze in zip(action_time,coords_list)} for matcher,coords_list in action_coords.items()}
     
-
     video_height = max(action_video.height, neon_video.height)
     video_width = neon_video.width+action_video.width*len(action_gaze_dict.keys())
     video_height =video_height//len(action_gaze_dict.keys())
     video_width = video_width//len(action_gaze_dict.keys())
-    if save_video_path is not None:
-        print(f'Saving video at {save_video_path}')
-        fourcc = cv.VideoWriter_fourcc(*'XVID')
-        print(video_width, video_height)
-        video = cv.VideoWriter(str(save_video_path), fourcc, int(
-            action_video.fps), (video_width,video_height))
     
     gaze_radius = 20
     gaze_thickness = 4
@@ -119,65 +111,115 @@ def main(action_video_path,
             all_frames =np.concatenate([all_frames, action_frame_gaze], axis=1)
 
         all_frames = cv.resize(all_frames, (video_width,video_height)) #w,h
-        if save_video_path is None:
-            cv.imshow('both_frames', all_frames)
-            cv.waitKey(100)
-            pressedKey = cv.waitKey(50) & 0xFF
-            if pressedKey == ord(' '):
-                print('Paused')
-                cv.waitKey(0)
-            if pressedKey == ord('q'):
-                break
-        else:
-            video.write(all_frames.astype(np.uint8))
+        cv.imshow('both_frames', all_frames)
+        cv.waitKey(100)
+        pressedKey = cv.waitKey(50) & 0xFF
+        if pressedKey == ord(' '):
+            print('Paused')
+            cv.waitKey(0)
+        if pressedKey == ord('q'):
+            break
+    cv.destroyAllWindows()
+
+
+
+def save_video(action_video_path,
+        action_worldtimestamps_path,
+        action_gaze_paths_dict,
+        neon_video_path,
+        neon_worldtimestamps_path,
+        neon_gaze_path,
+        save_video_path):
+    
+    action_coords = {matcher:get_gaze_per_frame(gaze_file=path, video_timestamps=action_worldtimestamps_path) for matcher,path in action_gaze_paths_dict.items()}
+    neon_gaze_coords_list = get_gaze_per_frame(
+        gaze_file=neon_gaze_path, video_timestamps=neon_worldtimestamps_path)
+    
+    action_video = VideoHandler(action_video_path)
+    neon_video = VideoHandler(neon_video_path)
+
+    neon_timestamps = pd.read_csv(neon_worldtimestamps_path, dtype={
+                                  'timestamp [ns]': np.float64})
+    action_timestamps = pd.read_csv(action_worldtimestamps_path, dtype={'timestamp [ns]': np.float64})
+
+    action_time = action_timestamps['timestamp [ns]'].values
+    action_time -= neon_timestamps['timestamp [ns]'].values[0]
+    action_time /= 1e9
+    neon_gaze_dict = {t: gaze for t, gaze in zip(
+        neon_video.timestamps, neon_gaze_coords_list)}
+    action_gaze_dict ={matcher:{t:gaze for t,gaze in zip(action_time,coords_list)} for matcher,coords_list in action_coords.items()}
+    
+
+    video_height = max(action_video.height, neon_video.height)
+    video_width = neon_video.width+action_video.width*len(action_gaze_dict.keys())
+    video_height =video_height//len(action_gaze_dict.keys())
+    video_width = video_width//len(action_gaze_dict.keys())
+    
+    fourcc = cv.VideoWriter_fourcc(*'XVID')
+    print(video_width, video_height)
+    video = cv.VideoWriter(str(save_video_path), fourcc, int(
+        action_video.fps), (video_width,video_height))
+    print(f'Saving video at {save_video_path}')
+
+    gaze_radius = 20
+    gaze_thickness = 4
+    gaze_color = (0, 0, 255)
+
+    for i, t in enumerate(action_time):
+        neon_frame = neon_video.get_frame_by_timestamp(t)
+        neon_frame = cv.cvtColor(neon_frame, cv.COLOR_BGR2RGB)
+
+        neon_frame_gaze=cv.circle(neon_frame.copy(), np.int32(
+            neon_gaze_dict[neon_video.get_closest_timestamp(t)]), gaze_radius, gaze_color, gaze_thickness)
+        cv.putText(neon_frame_gaze, f'Neon Scene', (50, 50),
+                   cv.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2, cv.LINE_AA)
+        cv.putText(neon_frame_gaze, f'Time: {neon_video.get_closest_timestamp(t)}',
+                   (50, 100), cv.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2, cv.LINE_AA)
+        
+        all_frames = neon_frame_gaze.copy()
+
+        action_frame = action_video.get_frame_by_timestamp(action_video.timestamps[i])
+        action_frame = cv.cvtColor(action_frame, cv.COLOR_RGB2BGR)
+
+        for matcher in action_gaze_dict.keys():
+            gaze = action_gaze_dict[matcher][t]
+            action_frame_gaze=cv.circle(action_frame.copy(), np.int32(gaze), gaze_radius, gaze_color, gaze_thickness)
+            cv.putText(action_frame_gaze, f'Action Cam ({matcher})', (50, 50),
+                       cv.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2, cv.LINE_AA)
+            cv.putText(action_frame_gaze, f'Time: {t}', (50, 100),
+                   cv.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2, cv.LINE_AA)
+            all_frames, action_frame_gaze = pad_images_height(all_frames, action_frame_gaze)
+            all_frames =np.concatenate([all_frames, action_frame_gaze], axis=1)
+        
+        all_frames = cv.resize(all_frames, (video_width,video_height)) #w,h
+        video.write(all_frames.astype(np.uint8))
+    
+    video.release()
     print('Finished')
-    if save_video_path is not None:
-        video.release()
-    else:
-        cv.destroyAllWindows()
 
 
 if __name__ == "__main__":
-    # action_vid_path = '/users/sof/gaze_mapping/raw_videos/InstaVid/computer_10s/AVun_20240209_151742_032.mp4'
-    # neon_vid_path = '/users/sof/gaze_mapping/raw_videos/Neon/Raw_Data/2024-02-09_computer/2024-02-09_14-45-16-80495056/47d4b0cc_0.0-12.177.mp4'
-    # neon_timestamps = '/users/sof/gaze_mapping/raw_videos/Neon/Raw_Data/2024-02-09_computer/2024-02-09_14-45-16-80495056/world_timestamps.csv'
-    # neon_gaze_path = '/users/sof/gaze_mapping/raw_videos/Neon/Raw_Data/2024-02-09_computer/2024-02-09_14-45-16-80495056/gaze.csv'
-
-    # neon_vid_path='/users/sof/gaze_mapping/raw_videos/Neon/Raw_Data/2024-02-16_wearingNeon/2024-02-16_15-58-13-6310bec3/cc00c32d_0.0-146.071.mp4'
-    # neon_timestamps='/users/sof/gaze_mapping/raw_videos/Neon/Raw_Data/2024-02-16_wearingNeon/2024-02-16_15-58-13-6310bec3/world_timestamps.csv'
-    # neon_gaze_path = '/users/sof/gaze_mapping/raw_videos/Neon/Raw_Data/2024-02-16_wearingNeon/2024-02-16_15-58-13-6310bec3/gaze.csv'
-
-    # action_vid_path = '/users/sof/gaze_mapping/raw_videos/InstaVid/wearingNeon_2m/AVun_20240216_160246_055.mp4'
-    # action_timestamps = '/users/sof/gaze_mapping/raw_videos/Neon/Raw_Data/2024-02-16_wearingNeon/2024-02-16_15-58-13-6310bec3/action_camera_world_timestamps.csv'
-    # action_gaze_path_lg = '/users/sof/mapped_gaze/wearingNeon_2m/wearingNeon_2m_gaze_mapping_disk_lightglue.csv'
-    # action_gaze_path_loftr = '/users/sof/mapped_gaze/wearingNeon_2m/wearingNeon_2m_gaze_mapping.csv'
-
     
-    # neon_vid_path='/users/sof/second_video/2024-05-23_16-47-35-a666ea62/e69049ea_0.0-42.986.mp4'
-    # neon_timestamps='/users/sof/second_video/2024-05-23_16-47-35-a666ea62/world_timestamps.csv'
-    # neon_gaze_path='/users/sof/second_video/2024-05-23_16-47-35-a666ea62/gaze.csv'
+    neon_vid_path='/users/sof/video_examples/second_video/2024-05-23_16-47-35-a666ea62/e69049ea_0.0-42.986.mp4'
+    neon_timestamps='/users/sof/video_examples/second_video/2024-05-23_16-47-35-a666ea62/world_timestamps.csv'
+    neon_gaze_path='/users/sof/video_examples/second_video/2024-05-23_16-47-35-a666ea62/gaze.csv'
 
-    # action_vid_path='/users/sof/second_video/20240523_171941_000.mp4'
-    # action_timestamps='/users/sof/second_video/2024-05-23_16-47-35-a666ea62/action_camera_world_timestamps.csv'
-    # action_gaze_path_lg = '/users/sof/action_map_experiments/second_video/mapped_gaze/disk_lightglue/action_gaze.csv'
-    # action_gaze_path_loftr = '/users/sof/action_map_experiments/second_video/mapped_gaze/loftr/action_gaze.csv'
+    action_vid_path='/users/sof/video_examples/second_video/20240523_171941_000.mp4'
+    action_timestamps='/users/sof/video_examples/second_video/2024-05-23_16-47-35-a666ea62/action_camera_world_timestamps.csv'
+    action_gaze_path_lg = '/users/sof/action_map_experiments/second_video/mapped_gaze/disk_lightglue/action_gaze.csv'
+    action_gaze_path_loftr = '/users/sof/action_map_experiments/second_video/mapped_gaze/loftr/action_gaze.csv'
 
-    
-    neon_vid_path='/users/sof/video_examples/first_video/2024-05-23_16-45-37-fc3fb5e5/a85c3ab8_0.0-43.164.mp4'
-    neon_timestamps='/users/sof/video_examples/first_video/2024-05-23_16-45-37-fc3fb5e5/world_timestamps.csv'
-    neon_gaze_path='/users/sof/video_examples/first_video/2024-05-23_16-45-37-fc3fb5e5/gaze.csv'
-
-    action_vid_path='/users/sof/video_examples/first_video/20240523_172035_637.mp4'
-    action_timestamps='/users/sof/video_examples/first_video/2024-05-23_16-45-37-fc3fb5e5/action_camera_world_timestamps.csv'
-    
-    action_gaze_path_lg = '/users/sof/action_map_experiments/first_video/mapped_gaze/disk_lightglue/action_gaze.csv'
-    action_gaze_path_loftr = '/users/sof/action_map_experiments/first_video/mapped_gaze/loftr/action_gaze.csv'
-
-
-    main(action_video_path=action_vid_path,
+    save_video(action_video_path=action_vid_path,
         action_worldtimestamps_path=action_timestamps,
         action_gaze_paths_dict={'LOFTR':action_gaze_path_loftr, 'LG+DISK':action_gaze_path_lg},
         neon_video_path=neon_vid_path,
         neon_worldtimestamps_path=neon_timestamps,
         neon_gaze_path=neon_gaze_path,
-        save_video_path='/users/sof/action_map_experiments/first_video/Neon_ActionCam_both.avi')    
+        save_video_path=f'{Path(action_gaze_path_lg).parent.parent.parent}/Neon_ActionCam_again.avi')  
+    
+    # view_video(action_video_path=action_vid_path,
+    #     action_worldtimestamps_path=action_timestamps,
+    #     action_gaze_paths_dict={'LOFTR':action_gaze_path_loftr, 'LG+DISK':action_gaze_path_lg},
+    #     neon_video_path=neon_vid_path,
+    #     neon_worldtimestamps_path=neon_timestamps,
+    #     neon_gaze_path=neon_gaze_path)  

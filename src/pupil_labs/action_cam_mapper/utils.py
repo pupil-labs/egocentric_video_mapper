@@ -76,36 +76,36 @@ class VideoHandler():
 
 
 
-def write_action_timestamp_csv(timestamps_path, aligned_relative_action_ts):
+def write_action_timestamp_csv(neon_timestamps_path, aligned_relative_action_ts):
     """Function that creates a timestamp csv file for the action camera recording. The csv file is saved in the same directory as the world_timestamps.csv of the Neon recording.
 
     Args:
-        timestamps_path (str): Path to the world_timestamps.csv of the Neon recording
+        neon_timestamps_path (str): Path to the world_timestamps.csv of the Neon recording
         aligned_relative_action_ts (ndarray): Timestamps of the action camera recording, obtained from the metadata of the video file. This function assumes that the timestamps are already aligned with the Neon recording timestamps.  
     """
-    world_timestamps = pd.read_csv(timestamps_path)
-    columns_for_mapping = world_timestamps.columns
+    neon_timestamps_df = pd.read_csv(neon_timestamps_path)
+    columns_for_mapping = neon_timestamps_df.columns
 
     action_timestamps = aligned_relative_action_ts/1e-9
     action_timestamps = np.int64(action_timestamps)
-    action_timestamps += world_timestamps["timestamp [ns]"].iloc[0]
+    action_timestamps += neon_timestamps_df["timestamp [ns]"].iloc[0]
 
     action_timestamps_df = pd.DataFrame.from_dict({col:[None for _ in action_timestamps] for col in columns_for_mapping})
     action_timestamps_df['timestamp [ns]'] = action_timestamps
-    action_timestamps_df['recording id'] = world_timestamps['recording id'].values[0]
+    action_timestamps_df['recording id'] = neon_timestamps_df['recording id'].values[0]
     
     
-    first_ts=world_timestamps['timestamp [ns]'].values[0]
-    last_ts=world_timestamps['timestamp [ns]'].values[-1]
+    first_ts=neon_timestamps_df['timestamp [ns]'].values[0]
+    last_ts=neon_timestamps_df['timestamp [ns]'].values[-1]
     
-    for section in world_timestamps['section id'].unique():
-        start_section = min(world_timestamps[world_timestamps['section id'] == section]['timestamp [ns]'])
-        end_section = max(world_timestamps[world_timestamps['section id'] == section]['timestamp [ns]'])
+    for section in neon_timestamps_df['section id'].unique():
+        start_section = min(neon_timestamps_df[neon_timestamps_df['section id'] == section]['timestamp [ns]'])
+        end_section = max(neon_timestamps_df[neon_timestamps_df['section id'] == section]['timestamp [ns]'])
         action_timestamps_df.loc[(action_timestamps_df['timestamp [ns]']>=start_section)&(action_timestamps_df['timestamp [ns]']<end_section), 'section id'] = section
 
-    action_timestamps_df.loc[(action_timestamps_df['section id'].isnull()) & (action_timestamps_df['timestamp [ns]']<first_ts), 'section id'] = world_timestamps.loc[world_timestamps['timestamp [ns]'] == first_ts,'section id'].values[0]
-    action_timestamps_df.loc[(action_timestamps_df['section id'].isnull()) & (action_timestamps_df['timestamp [ns]']>=last_ts), 'section id'] = world_timestamps.loc[world_timestamps['timestamp [ns]'] == last_ts,'section id'].values[0]
+    action_timestamps_df.loc[(action_timestamps_df['section id'].isnull()) & (action_timestamps_df['timestamp [ns]']<first_ts), 'section id'] = neon_timestamps_df.loc[neon_timestamps_df['timestamp [ns]'] == first_ts,'section id'].values[0]
+    action_timestamps_df.loc[(action_timestamps_df['section id'].isnull()) & (action_timestamps_df['timestamp [ns]']>=last_ts), 'section id'] = neon_timestamps_df.loc[neon_timestamps_df['timestamp [ns]'] == last_ts,'section id'].values[0]
 
-    saving_path = Path(timestamps_path).parent
+    saving_path = Path(neon_timestamps_path).parent
     action_timestamps_df.to_csv(Path(saving_path,'action_camera_world_timestamps.csv'), index=False)
     print(f"Timestamps for action camera recording saved at {Path(saving_path/'action_camera_world_timestamps.csv')}")

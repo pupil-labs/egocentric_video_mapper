@@ -137,6 +137,7 @@ def main(action_vid_path, neon_timeseries_dir, output_dir, image_matcher,optic_f
     #Step 4 (Optional): Render simultaneous videos with gaze in both
     if render_video:
         video_path=Path(output_dir,f"video_render/Neon_Action_{image_matcher['choice']}_{optic_flow_choice}.mp4")
+        Path(video_path).parent.mkdir(parents=True, exist_ok=True)
         print(f'Rendering video')
         save_video(action_video_path=action_vid_path,
             action_worldtimestamps_path=action_timestamps,

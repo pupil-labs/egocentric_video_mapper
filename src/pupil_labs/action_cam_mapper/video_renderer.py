@@ -85,7 +85,7 @@ def main(action_video_path,
         print(f'Saving video at {save_video_path}')
         fourcc = cv.VideoWriter_fourcc(*'XVID')
         print(video_width, video_height)
-        video = cv.VideoWriter(save_video_path, fourcc, int(
+        video = cv.VideoWriter(str(save_video_path), fourcc, int(
             action_video.fps), (video_width,video_height))
     
     gaze_radius = 20

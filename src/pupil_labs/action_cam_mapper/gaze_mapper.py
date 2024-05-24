@@ -57,8 +57,8 @@ class ActionCameraGazeMapper:
             print(i)
             gaze_neon=self.neon_gaze.loc[self.neon_gaze['timestamp [ns]']==gaze_world_ts,['gaze x [px]', 'gaze y [px]']].values.reshape(1,2)
             gaze_relative_timestamp = (gaze_world_ts - self.neon_worldtimestamps['timestamp [ns]'].values[0])/1e9
-            neon_timestamp = self.neon_video.get_closest_timestamp(gaze_relative_timestamp)
-            action_timestamp = self.action_video.get_closest_timestamp(neon_timestamp-self.action2neon_offset)
+            neon_timestamp = self.neon_video.get_closest_timestamp(gaze_relative_timestamp)[0]
+            action_timestamp = self.action_video.get_closest_timestamp(neon_timestamp-self.action2neon_offset)[0]
 
             if self._gaze_between_video_frames(gaze_world_ts):
                 semantically_correct_gaze = self._move_point_to_video_timestamp(gaze_neon, gaze_relative_timestamp, neon_timestamp, self.neon_opticflow)

@@ -2,7 +2,7 @@ import os
 import pandas as pd
 import numpy as np
 from optic_flow import OpticFlowCalculatorLK, OpticFlowCalculatorFarneback
-from utils import VideoHandler, write_worldtimestamp_csv
+from utils import VideoHandler, write_action_timestamp_csv
 from sync_videos import OffsetCalculator
 from gaze_mapper import ActionCameraGazeMapper
 from video_renderer import save_video 
@@ -66,7 +66,7 @@ def align_videos(action_result,neon_result,action_vid_path,neon_timestamps):
     t_offset, pearson_corr = offset_calc.estimate_time_offset()
     print(f'Estimated offset: {t_offset} seconds (Pearson correlation: {pearson_corr})')
     actionVid=VideoHandler(action_vid_path)
-    write_worldtimestamp_csv(world_timestamps_path=neon_timestamps, relative_timestamps=actionVid.timestamps+t_offset)
+    write_action_timestamp_csv(neon_timestamps, actionVid.timestamps+t_offset)
 
 def main_mapper(action_vid_path,
                 neon_vid_path,

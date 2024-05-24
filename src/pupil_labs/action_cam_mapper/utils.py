@@ -76,26 +76,27 @@ class VideoHandler():
 
 
 
-def write_worldtimestamp_csv(timestamps_path, aligned_relative_timestamps):
-    """Function that creates a world timestamp csv file for action camera recording. The csv file is saved in the same directory as the world_timestamps.csv of the Neon recording.
+def write_action_timestamp_csv(timestamps_path, aligned_relative_action_ts):
+    """Function that creates a timestamp csv file for the action camera recording. The csv file is saved in the same directory as the world_timestamps.csv of the Neon recording.
 
     Args:
         timestamps_path (str): Path to the world_timestamps.csv of the Neon recording
-        aligned_relative_timestamps (ndarray): Timestamps of the action camera recording, obtained from the metadata of the video file. This function assumes that the timestamps are already aligned with the Neon recording timestamps.  
+        aligned_relative_action_ts (ndarray): Timestamps of the action camera recording, obtained from the metadata of the video file. This function assumes that the timestamps are already aligned with the Neon recording timestamps.  
     """
     world_timestamps = pd.read_csv(timestamps_path)
     columns_for_mapping = world_timestamps.columns
 
-    action_timestamps = aligned_relative_timestamps/1e-9
+    action_timestamps = aligned_relative_action_ts/1e-9
     action_timestamps = np.int64(action_timestamps)
     action_timestamps += world_timestamps["timestamp [ns]"].iloc[0]
 
     action_timestamps_df = pd.DataFrame.from_dict({col:[None for _ in action_timestamps] for col in columns_for_mapping})
     action_timestamps_df['timestamp [ns]'] = action_timestamps
     action_timestamps_df['recording id'] = world_timestamps['recording id'].values[0]
-    last_ts=max(world_timestamps['timestamp [ns]'])
-    first_ts=min(world_timestamps['timestamp [ns]'])
-
+    
+    
+    first_ts=world_timestamps['timestamp [ns]'].values[0]
+    last_ts=world_timestamps['timestamp [ns]'].values[-1]
     
     for section in world_timestamps['section id'].unique():
         start_section = min(world_timestamps[world_timestamps['section id'] == section]['timestamp [ns]'])

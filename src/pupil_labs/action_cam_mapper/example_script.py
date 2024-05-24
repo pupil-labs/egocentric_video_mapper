@@ -54,7 +54,7 @@ def main_mapper(action_vid_path,
                 output_dir,
                 matcher,
                 ):
-    output_dir=Path(output_dir,matcher['choice'])
+    output_dir=Path(output_dir,f'mapped_gaze/{matcher["choice"]}')
     Path(output_dir).mkdir(parents=True, exist_ok=True)
 
     param=matcher['parameters']
@@ -103,7 +103,7 @@ def main(action_vid_path, neon_timeseries_dir, output_dir, image_matcher,optic_f
                 neon_gaze_csv=neon_gaze_csv,
                 neon_opticflow_csv=neon_of_path,
                 action_opticflow_csv=action_of_path,
-                output_dir=Path(output_dir,'mapped_gaze'),
+                output_dir=output_dir,
                 matcher=image_matcher
                 )
     #Step 4 (Optional): Render simultaneous videos with gaze in both

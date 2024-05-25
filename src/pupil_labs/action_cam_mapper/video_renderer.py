@@ -170,7 +170,7 @@ def save_video(action_video_path,
         neon_frame = cv.cvtColor(neon_frame, cv.COLOR_BGR2RGB)
 
         neon_frame_gaze=cv.circle(neon_frame.copy(), np.int32(
-            neon_gaze_dict[neon_video.get_closest_timestamp(t)]), gaze_radius, gaze_color, gaze_thickness)
+            neon_gaze_dict[neon_video.get_closest_timestamp(t)[0]]), gaze_radius, gaze_color, gaze_thickness)
         cv.putText(neon_frame_gaze, f'Neon Scene', (50, 50),
                    cv.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2, cv.LINE_AA)
         cv.putText(neon_frame_gaze, f'Time: {neon_video.get_closest_timestamp(t)}',

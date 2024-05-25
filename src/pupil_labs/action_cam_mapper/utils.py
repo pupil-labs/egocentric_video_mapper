@@ -57,6 +57,8 @@ class VideoHandler():
     def get_closest_timestamp(self, time):
         after_index = np.searchsorted(self.timestamps, time)
         before_index= after_index - 1
+        if after_index == len(self.timestamps):
+            return self.timestamps[before_index], int(before_index)
         ts_after = self.timestamps[after_index]
         ts_before = self.timestamps[before_index]
         if np.abs(ts_after - time) < np.abs(ts_before - time):

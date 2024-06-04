@@ -62,7 +62,7 @@ def calc_optic(neon_video,action_video,output_dir,of_choice='farneback'):
     return action_saving_path,neon_saving_path
 
 def align_videos(action_result,neon_result,action_vid_path,neon_timestamps):
-    offset_calc=OffsetCalculator(source=action_result['angle'].values,source_timestamps=action_result['start'].values, destination=neon_result['angle'].values, destination_timestamps=neon_result['start'].values,resampling_frequency=500)
+    offset_calc=OffsetCalculator(src=action_result['angle'].values,src_timestamps=action_result['start'].values, dst=neon_result['angle'].values, dst_timestamps=neon_result['start'].values,resampling_frequency=500)
     t_offset, pearson_corr = offset_calc.estimate_time_offset()
     print(f'Estimated offset: {t_offset} seconds (Pearson correlation: {pearson_corr})')
     actionVid=VideoHandler(action_vid_path)
@@ -134,6 +134,7 @@ def main(action_vid_path, neon_timeseries_dir, output_dir, image_matcher,optic_f
                 matcher=image_matcher,
                 optic_flow_choice=optic_flow_choice
                 )
+    print(f'Gaze mapped to action video: {action_gaze_csv}')
     #Step 4 (Optional): Render simultaneous videos with gaze in both
     if render_video:
         video_path=Path(output_dir,f"video_render/Neon_Action_{image_matcher['choice']}_{optic_flow_choice}.mp4")

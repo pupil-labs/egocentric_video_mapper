@@ -84,10 +84,8 @@ class OffsetCalculator():
             int: Index of the start time position in the timestamps array.
             int: Index of the end time position in the timestamps array.
         """
-        start_index = 0 if start_time is None else np.where(
-            timestamps >= start_time)[0][0]
-        end_index = None if end_time is None else np.where(
-            timestamps <= end_time)[0][-1]
+        start_index = 0 if start_time is None else np.searchsorted(timestamps, start_time)
+        end_index = None if end_time is None else np.searchsorted(timestamps, end_time)
         return start_index, end_index
     
     @staticmethod

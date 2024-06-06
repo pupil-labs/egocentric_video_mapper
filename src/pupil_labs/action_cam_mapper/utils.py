@@ -79,11 +79,11 @@ class VideoHandler():
 
 
 def write_action_timestamp_csv(neon_timestamps_path, aligned_relative_action_ts):
-    """Function that creates a timestamp csv file for the action camera recording. The csv file is saved in the same directory as the world_timestamps.csv of the Neon recording.
+    """Function that creates a timestamp csv file for the action camera recording in the same format as the world_timestamps.csv. The csv file is saved in the same directory as the world_timestamps.csv of the given Neon recording.
 
     Args:
         neon_timestamps_path (str): Path to the world_timestamps.csv of the Neon recording
-        aligned_relative_action_ts (ndarray): Timestamps of the action camera recording, obtained from the metadata of the video file. This function assumes that the timestamps are already aligned with the Neon recording timestamps.  
+        aligned_relative_action_ts (ndarray): Timestamps of the action camera recording, obtained from the metadata of the video file. This function assumes that the timestamps are already aligned with the relative Neon recording timestamps.  
     """
     neon_timestamps_df = pd.read_csv(neon_timestamps_path)
     columns_for_mapping = neon_timestamps_df.columns
@@ -108,5 +108,5 @@ def write_action_timestamp_csv(neon_timestamps_path, aligned_relative_action_ts)
     action_timestamps_df.loc[(action_timestamps_df['section id'].isnull()) & (action_timestamps_df['timestamp [ns]']>=last_ts), 'section id'] = neon_timestamps_df.loc[neon_timestamps_df['timestamp [ns]'] == last_ts,'section id'].values[0]
 
     saving_path = Path(neon_timestamps_path).parent
-    action_timestamps_df.to_csv(Path(saving_path,'action_camera_world_timestamps.csv'), index=False)
-    print(f"Timestamps for action camera recording saved at {Path(saving_path/'action_camera_world_timestamps.csv')}")
+    action_timestamps_df.to_csv(Path(saving_path,'action_camera_timestamps.csv'), index=False)
+    print(f"Timestamps for action camera recording saved at {Path(saving_path/'action_camera_timestamps.csv')}")

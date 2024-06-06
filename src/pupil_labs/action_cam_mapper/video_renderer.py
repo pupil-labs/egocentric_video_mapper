@@ -205,9 +205,9 @@ if __name__ == "__main__":
     neon_gaze_path='/users/sof/video_examples/second_video/2024-05-23_16-47-35-a666ea62/gaze.csv'
 
     action_vid_path='/users/sof/video_examples/second_video/20240523_171941_000.mp4'
-    action_timestamps='/users/sof/video_examples/second_video/2024-05-23_16-47-35-a666ea62/action_camera_world_timestamps.csv'
-    action_gaze_path_lg = '/users/sof/action_map_experiments/second_video/mapped_gaze/disk_lightglue/action_gaze.csv'
-    action_gaze_path_loftr = '/users/sof/action_map_experiments/second_video/mapped_gaze/loftr/action_gaze.csv'
+    action_timestamps='/users/sof/video_examples/second_video/2024-05-23_16-47-35-a666ea62/action_camera_timestamps.csv'
+    action_gaze_path_lg = '/users/sof/action_map_experiments/second_video_2/mapped_gaze/disk_lightglue/action_gaze_lnk.csv'
+    action_gaze_path_loftr = '/users/sof/action_map_experiments/second_video_2/mapped_gaze/loftr/action_gaze_lnk.csv'
 
     save_video(action_video_path=action_vid_path,
         action_worldtimestamps_path=action_timestamps,
@@ -215,7 +215,7 @@ if __name__ == "__main__":
         neon_video_path=neon_vid_path,
         neon_worldtimestamps_path=neon_timestamps,
         neon_gaze_path=neon_gaze_path,
-        save_video_path=f'{Path(action_gaze_path_lg).parent.parent.parent}/Neon_ActionCam_again.avi')  
+        save_video_path='/users/sof/action_map_experiments/second_video_2/video_render/Neon_ActionCam_both_lk.avi')  
     
     # view_video(action_video_path=action_vid_path,
     #     action_worldtimestamps_path=action_timestamps,

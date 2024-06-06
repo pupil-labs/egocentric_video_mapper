@@ -118,7 +118,7 @@ def main(action_vid_path, neon_timeseries_dir, output_dir, image_matcher,optic_f
     align_videos(action_result,neon_result,action_vid_path,neon_timestamps)
 
     #check if world_timestamps.csv is created
-    action_timestamps=neon_timeseries_dir+'/action_camera_world_timestamps.csv'
+    action_timestamps=neon_timeseries_dir+'/action_camera_timestamps.csv'
     if not Path(action_timestamps).exists():
         raise FileNotFoundError(f'{action_timestamps} not created!')
     

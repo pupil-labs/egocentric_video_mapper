@@ -2,46 +2,44 @@ import cv2 as cv
 import numpy as np
 import pandas as pd
 from pathlib import Path
-from dataclasses import dataclass,asdict
+from dataclasses import dataclass,asdict,field
 from abc import ABC, abstractmethod
 from utils import VideoHandler
 
 
 @dataclass
 class OpticFlowResult:
-    avg_displacement_x: float
-    avg_displacement_y: float
+    dx: float
+    dy: float
     start: float = None
     end: float = None
-    @property
-    def angle(self):
-        return np.arctan2(self.avg_displacement_y, self.avg_displacement_x)
+    angle: float = field(init=False)
+
+    def __post_init__(self):
+        self.angle = np.arctan2(self.dy, self.dx)
 
 
 class OpticFlowCalculatorBase(ABC):
-    """Base class for optic flow calculation.
-    Args:
-        video_dir(str): Path to the video file
-    """
     def __init__(self, video_dir):
-        self.video = VideoHandler(video_dir)
+        self.video_handler = VideoHandler(video_dir)
         self.optic_flow_result = pd.DataFrame.from_dict(
             dict(start=[], end=[], avg_displacement_x=[], avg_displacement_y=[], angle=[]))
 
-    def get_all_optic_flow(self):
-        return self.get_optic_flow(self.video.timestamps[0], self.video.timestamps[-1])
-
-    def get_optic_flow(self, start_time, end_time, output_file=None):
+    def get_optic_flow(self, start_time=None, end_time=None, output_file=None):
         """Method to calculate the optic flow in a defined video interval. Optic flow is calculated between consecutive frames in the interval.
         Args:
-            start_time (float): start time of the video interval to calculate the optic flow signal.
-            end_time (float): end time of the video interval to calculate the optic flow signal.
+            start_time (float): start time of the video interval to calculate the optic flow signal. Defaults to None. If not specified, the start time is the first timestamp in the video.
+            end_time (float): end time of the video interval to calculate the optic flow signal. Defaults to None. If not specified, the end time is the last timestamp in the video.
             output_file (str, optional): Path to a csv file to store the calculated optic flow signal. Defaults to None. If not specified, the signal is not saved to a file. 
 
         Returns:
             DataFrame: Pandas DataFrame containing the calculated optic flow signal. Has the following columns: 'start', 'end', 'avg_displacement_x', 'avg_displacement_y', 'angle'. 
         """
-        timestamps_for_optic_flow = self.video.get_timestamps_in_interval(
+        if start_time is None:
+            start_time = self.video_handler.timestamps[0]
+        if end_time is None:
+            end_time = self.video_handler.timestamps[-1]
+        timestamps_for_optic_flow = self.video_handler.get_timestamps_in_interval(
             start_time, end_time)
         requested_optic_flow = dict(start=[], end=[], avg_displacement_x=[
         ], avg_displacement_y=[], angle=[])
@@ -49,7 +47,7 @@ class OpticFlowCalculatorBase(ABC):
             if self._is_optic_flow_already_calculated(ts1, ts2):
                 flow = self._retrieve_optic_flow(ts1, ts2)
             else:
-                frame1, frame2 = self.video.get_frame_by_timestamp(ts1), self.video.get_frame_by_timestamp(ts2)
+                frame1, frame2 = self.video_handler.get_frame_by_timestamp(ts1), self.video_handler.get_frame_by_timestamp(ts2)
                 flow = self._calculate_optical_flow_between_frames(frame1, frame2)
                 flow.start = ts1
                 flow.end = ts2
@@ -110,7 +108,7 @@ class OpticFlowCalculatorLK(OpticFlowCalculatorBase):
         self.points_to_track = self._create_grid_points()
 
     def _create_grid_points(self):
-        xx, yy = np.mgrid[0:self.video.width:self.grid_spacing, 0:self.video.height:self.grid_spacing]
+        xx, yy = np.mgrid[0:self.video_handler.width:self.grid_spacing, 0:self.video_handler.height:self.grid_spacing]
         point_coordinates = np.array(
             [[xx[i, j], yy[i, j]] for i in range(xx.shape[0]) for j in range(xx.shape[1])])
         return point_coordinates.reshape(-1, 1, 2).astype(np.float32)
@@ -126,7 +124,7 @@ class OpticFlowCalculatorLK(OpticFlowCalculatorBase):
         status = chebyshev_distance < 1.0
         good_new_points, good_old_points = p1[status], self.points_to_track[status]
         displacement = good_new_points.reshape(-1,2) - good_old_points.reshape(-1,2)
-        return OpticFlowResult(avg_displacement_x=np.mean(displacement[:, 0]), avg_displacement_y=np.mean(displacement[:, 1]))
+        return OpticFlowResult(dx=np.mean(displacement[:, 0]), dy=np.mean(displacement[:, 1]))
 
 
 class OpticFlowCalculatorFarneback(OpticFlowCalculatorBase):
@@ -145,4 +143,4 @@ class OpticFlowCalculatorFarneback(OpticFlowCalculatorBase):
             second_frame, cv.COLOR_BGR2GRAY), None, **self.farneback_params)
         avg_displacement_x = np.mean(dense_optical_flow[:, :, 0])
         avg_displacement_y = np.mean(dense_optical_flow[:, :, 1])
-        return OpticFlowResult(avg_displacement_x=avg_displacement_x, avg_displacement_y=avg_displacement_y)
+        return OpticFlowResult(dx=avg_displacement_x, dy=avg_displacement_y)

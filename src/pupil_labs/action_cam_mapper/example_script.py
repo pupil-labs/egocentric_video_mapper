@@ -38,28 +38,31 @@ def get_file(folder_path, file_suffix='.mp4', required_in_name='0'):
             for name in files
             if name.endswith(file_suffix) and required_in_name in name][0]
 
+
 def calc_optic(neon_video,action_video,output_dir,of_choice='farneback'):
     output_dir = Path(output_dir,'optic_flow')
     Path(output_dir).mkdir(parents=True, exist_ok=True)
 
     if of_choice.lower() == 'farneback':
         action_of = OpticFlowCalculatorFarneback(video_dir=action_video)
-        optic_flow_action=action_of.get_all_optic_flow()
         neon_of = OpticFlowCalculatorFarneback(video_dir=neon_video)
-        optic_flow_neon = neon_of.get_all_optic_flow()
+        
     elif of_choice.lower() == 'lk':
         action_of = OpticFlowCalculatorLK(video_dir=action_video)
-        optic_flow_action=action_of.get_all_optic_flow()
         neon_of = OpticFlowCalculatorLK(video_dir=neon_video)
-        optic_flow_neon = neon_of.get_all_optic_flow()
     else:
         raise ValueError('Invalid optic flow choice. Choose from "farneback" or "lk"')
     
+    optic_flow_neon = neon_of.process_video()
+    optic_flow_action=action_of.process_video()
+
     action_saving_path = Path(output_dir,f'action_{of_choice}_of.csv')
     neon_saving_path = Path(output_dir,f'neon_{of_choice}_of.csv')
     action_of.write_to_csv(output_file=action_saving_path)
     neon_of.write_to_csv(output_file=neon_saving_path)
+
     return action_saving_path,neon_saving_path
+
 
 def align_videos(action_result,neon_result,action_vid_path,neon_timestamps):
     offset_calc=OffsetCalculator(src=action_result['angle'].values,src_timestamps=action_result['start'].values, dst=neon_result['angle'].values, dst_timestamps=neon_result['start'].values,resampling_frequency=500)

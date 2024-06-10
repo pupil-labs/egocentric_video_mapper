@@ -25,7 +25,7 @@ class OpticFlowCalculatorBase(ABC):
         self.optic_flow_result = pd.DataFrame.from_dict(
             dict(start=[], end=[], dx=[], dy=[], angle=[]))
 
-    def get_optic_flow(self, start_time=None, end_time=None, output_file=None):
+    def process_video(self, start_time=None, end_time=None, output_file=None):
         """Method to calculate the optic flow in a defined video interval. Optic flow is calculated between consecutive frames in the interval.
         Args:
             start_time (float): start time of the video interval to calculate the optic flow signal. Defaults to None. If not specified, the start time is the first timestamp in the video.

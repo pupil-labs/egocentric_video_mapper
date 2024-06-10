@@ -154,10 +154,10 @@ class ActionCameraGazeMapper:
         if time_difference==0:
             return point_coordinates
         elif time_difference>0: # The point is in the past, so it needs to be moved to the 'future'
-            opticflow_displacement_between_frames = opticflow.loc[opticflow['end'] == opticflow_timestamp,['avg_displacement_x','avg_displacement_y']].values
+            opticflow_displacement_between_frames = opticflow.loc[opticflow['end'] == opticflow_timestamp,['dx','dy']].values
             dx_dy_dt = opticflow_displacement_between_frames/np.diff(opticflow.loc[opticflow['end'] == opticflow_timestamp,['start','end']].values)
         elif time_difference<0: #The point is in the future, so it needs to be moved to the 'past', against the optic flow between the optic flow timestamp and the next timestamp
-            opticflow_displacement_between_frames = opticflow.loc[opticflow['start'] == opticflow_timestamp,['avg_displacement_x','avg_displacement_y']].values
+            opticflow_displacement_between_frames = opticflow.loc[opticflow['start'] == opticflow_timestamp,['dx','dy']].values
             dx_dy_dt = opticflow_displacement_between_frames/np.diff(opticflow.loc[opticflow['start'] == opticflow_timestamp,['start','end']].values)
         dx_dy = dx_dy_dt * time_difference
         return point_coordinates + dx_dy
@@ -173,10 +173,10 @@ class ActionCameraGazeMapper:
         if time_difference == 0:
             return point_coordinates
         elif time_difference > 0: # target timestamp is in the future with respect to the video timestamp
-            opticflow_displacement_between_frames =opticflow.loc[opticflow['start'] == video_timestamp,['avg_displacement_x','avg_displacement_y']].values
+            opticflow_displacement_between_frames =opticflow.loc[opticflow['start'] == video_timestamp,['dx','dy']].values
             dx_dy_dt = opticflow_displacement_between_frames/np.diff(opticflow.loc[opticflow['start'] == video_timestamp,['start','end']].values)
         elif time_difference < 0: # target timestamp is in the past with respect to the video timestamp
-            opticflow_displacement_between_frames = opticflow.loc[opticflow['end'] == video_timestamp,['avg_displacement_x','avg_displacement_y']].values
+            opticflow_displacement_between_frames = opticflow.loc[opticflow['end'] == video_timestamp,['dx','dy']].values
             dx_dy_dt = opticflow_displacement_between_frames/np.diff(opticflow.loc[opticflow['end'] == video_timestamp,['start','end']].values)
         dx_dy = dx_dy_dt * time_difference
         return point_coordinates + dx_dy

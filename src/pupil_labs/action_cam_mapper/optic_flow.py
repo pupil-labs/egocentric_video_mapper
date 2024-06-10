@@ -98,11 +98,10 @@ class OpticFlowCalculatorLK(OpticFlowCalculatorBase):
         video_dir (str): Path to the video file.
         grid_spacing (int, optional): Spacing between grid points to track. Defaults to 50. The smaller the spacing, the more points are tracked and the more time expensive the calculation is.
     """
-    def __init__(self, video_dir, grid_spacing=50):
+    def __init__(self, video_dir, grid_spacing=50, params={'winSize': (15, 15), 'maxLevel': 2, 'criteria': (cv.TERM_CRITERIA_EPS | cv.TERM_CRITERIA_COUNT, 10, 0.03)}):
         super().__init__(video_dir)
         self.grid_spacing = grid_spacing
-        self.lk_params = dict(winSize=(15, 15), maxLevel=2, criteria=(
-            cv.TERM_CRITERIA_EPS | cv.TERM_CRITERIA_COUNT, 10, 0.03))
+        self.lk_params = params
         self.grid_points = self._create_grid_points()
 
     def _create_grid_points(self):
@@ -135,10 +134,9 @@ class OpticFlowCalculatorFarneback(OpticFlowCalculatorBase):
     Args:
         video_dir (str): Path to the video file.
     """
-    def __init__(self, video_dir):
+    def __init__(self, video_dir, params={'pyr_scale': 0.5, 'levels': 3, 'winsize': 15, 'iterations': 3, 'poly_n': 5, 'poly_sigma': 1.2, 'flags': 0}):
         super().__init__(video_dir)
-        self.farneback_params = dict(
-            pyr_scale=0.5, levels=3, winsize=15, iterations=3, poly_n=5, poly_sigma=1.2, flags=0)
+        self.farneback_params = params
 
     def _calculate_optical_flow_between_frames(self, first_frame, second_frame,first_ts=None,second_ts=None):
         dense_optical_flow = cv.calcOpticalFlowFarneback(cv.cvtColor(first_frame, cv.COLOR_BGR2GRAY), cv.cvtColor(

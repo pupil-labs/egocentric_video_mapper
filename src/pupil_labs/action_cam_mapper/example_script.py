@@ -1,6 +1,8 @@
 import os
+import sys
 import pandas as pd
 import numpy as np
+import logging
 from optic_flow import OpticFlowCalculatorLK, OpticFlowCalculatorFarneback
 from utils import VideoHandler, write_action_timestamp_csv
 from sync_videos import OffsetCalculator
@@ -111,51 +113,64 @@ def main(action_vid_path, neon_timeseries_dir, output_dir, image_matcher,optic_f
 
     Path(output_dir).mkdir(parents=True, exist_ok=True)
     
+    stream_handler = logging.StreamHandler(sys.stdout)
+    stream_handler.setLevel(logging.INFO)
+    stream_handler.setFormatter(logging.Formatter('[%(levelname)s] %(funcName)s function in %(name)s: %(message)s'))
+    logging.basicConfig(format='[%(levelname)s]  %(funcName)s function in %(name)s (%(asctime)s):  %(message)s',handlers=[logging.FileHandler(Path(output_dir,'whole_pipeline.log')),stream_handler],datefmt='%m/%d/%Y %I:%M:%S %p', level=logging.INFO)
+    
+    logger=logging.getLogger(__name__)
+    logger.setLevel(logging.INFO)
+    logger.info(f'Results will be saved in {output_dir} unless specified otherwise by mssg')
+
     #Step 1: Calculate optic flow
     action_of_path, neon_of_path=calc_optic(neon_video=neon_vid_path,action_video=action_vid_path,output_dir=output_dir,of_choice=optic_flow_choice)
-    print('Optic flow for both videos calculated')
+    logger.info('Optic flow for both videos calculated')
 
     #Step 2: Estimate time offset and create action world timestamps
     action_result=pd.read_csv(action_of_path)
     neon_result=pd.read_csv(neon_of_path)
     align_videos(action_result,neon_result,action_vid_path,neon_timestamps)
-
     #check if world_timestamps.csv is created
     action_timestamps=neon_timeseries_dir+'/action_camera_timestamps.csv'
     if not Path(action_timestamps).exists():
+        logger.error(f'{action_timestamps} not created!')
         raise FileNotFoundError(f'{action_timestamps} not created!')
     
     #Step 3: Map gaze
-    action_gaze_csv=main_mapper(action_vid_path=action_vid_path,
-                neon_vid_path=neon_vid_path,
-                neon_timestamps=neon_timestamps,
-                action_timestamps=action_timestamps,
-                neon_gaze_csv=neon_gaze_csv,
-                neon_opticflow_csv=neon_of_path,
-                action_opticflow_csv=action_of_path,
-                output_dir=output_dir,
-                matcher=image_matcher,
-                optic_flow_choice=optic_flow_choice
-                )
-    print(f'Gaze mapped to action video: {action_gaze_csv}')
-    #Step 4 (Optional): Render simultaneous videos with gaze in both
-    if render_video:
-        video_path=Path(output_dir,f"video_render/Neon_Action_{image_matcher['choice']}_{optic_flow_choice}.mp4")
-        Path(video_path).parent.mkdir(parents=True, exist_ok=True)
-        print(f'Rendering video')
-        save_video(action_video_path=action_vid_path,
-            action_worldtimestamps_path=action_timestamps,
-            action_gaze_paths_dict={image_matcher['choice'].upper():action_gaze_csv},
-            neon_video_path=neon_vid_path,
-            neon_worldtimestamps_path=neon_timestamps,
-            neon_gaze_path=neon_gaze_csv,
-            save_video_path=video_path
-        )
+    # action_gaze_csv=main_mapper(action_vid_path=action_vid_path,
+    #             neon_vid_path=neon_vid_path,
+    #             neon_timestamps=neon_timestamps,
+    #             action_timestamps=action_timestamps,
+    #             neon_gaze_csv=neon_gaze_csv,
+    #             neon_opticflow_csv=neon_of_path,
+    #             action_opticflow_csv=action_of_path,
+    #             output_dir=output_dir,
+    #             matcher=image_matcher,
+    #             optic_flow_choice=optic_flow_choice
+    #             )
+    # logger.info(f'Gaze mapped to action video: {action_gaze_csv}')
+
+    # #Step 4 (Optional): Render simultaneous videos with gaze in both
+    # if render_video:
+    #     video_path=Path(output_dir,f"video_render/Neon_Action_{image_matcher['choice']}_{optic_flow_choice}.mp4")
+    #     Path(video_path).parent.mkdir(parents=True, exist_ok=True)
+    #     save_video(action_video_path=action_vid_path,
+    #         action_worldtimestamps_path=action_timestamps,
+    #         action_gaze_paths_dict={image_matcher['choice'].upper():action_gaze_csv},
+    #         neon_video_path=neon_vid_path,
+    #         neon_worldtimestamps_path=neon_timestamps,
+    #         neon_gaze_path=neon_gaze_csv,
+    #         save_video_path=video_path
+    #     )
 
 if __name__ == "__main__":
     action_vid_path='/users/sof/gaze_mapping/raw_videos/InstaVid/wearingNeon_2m/AVun_20240216_160246_055.mp4'
     neon_timeseries_path='/users/sof/gaze_mapping/raw_videos/Neon/Raw_Data/2024-02-16_wearingNeon/2024-02-16_15-58-13-6310bec3/'
 
+    neon_timeseries_path='/users/sof/video_examples/second_video/2024-05-23_16-47-35-a666ea62/'
+    action_vid_path='/users/sof/video_examples/second_video/20240523_171941_000.mp4'
+    
+    
     output_dir='/users/sof/action_map_experiments/' # parent directory for all outputs
     name=Path(action_vid_path).parent.name
     output_dir=Path(output_dir,name)

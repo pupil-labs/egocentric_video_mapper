@@ -85,6 +85,9 @@ def write_action_timestamp_csv(neon_timestamps_path, aligned_relative_action_ts)
         neon_timestamps_path (str): Path to the world_timestamps.csv of the Neon recording
         aligned_relative_action_ts (ndarray): Timestamps of the action camera recording, obtained from the metadata of the video file. This function assumes that the timestamps are already aligned with the relative Neon recording timestamps.  
     """
+    logger=logging.getLogger(__name__)
+    logger.setLevel(logging.INFO)
+
     neon_timestamps_df = pd.read_csv(neon_timestamps_path)
     columns_for_mapping = neon_timestamps_df.columns
 
@@ -95,10 +98,15 @@ def write_action_timestamp_csv(neon_timestamps_path, aligned_relative_action_ts)
     action_timestamps_df['timestamp [ns]'] = action_timestamps
     action_timestamps_df['recording id'] = neon_timestamps_df['recording id'].values[0]
     
-    
     first_ts=neon_timestamps_df['timestamp [ns]'].values[0]
     last_ts=neon_timestamps_df['timestamp [ns]'].values[-1]
     
+    mssg= f'First timestamps of the action camera recording ({pd.Timestamp(action_timestamps_df["timestamp [ns]"].values[0],unit="ns",tz="UTC")}) is {"before" if action_timestamps_df["timestamp [ns]"].values[0]<first_ts else "after"} the first timestamp of the Neon Scene recording ({pd.Timestamp(first_ts,unit="ns",tz="UTC")})'
+    logger.warning(mssg) if action_timestamps_df["timestamp [ns]"].values[0]<first_ts else logger.info(mssg)
+    
+    mssg=f'Last timestamp of the action camera recording ({pd.Timestamp(action_timestamps_df["timestamp [ns]"].values[-1],unit="ns",tz="UTC")}) is {"before" if action_timestamps_df["timestamp [ns]"].values[-1]<last_ts else "after"} the last timestamp of the Neon recording ({pd.Timestamp(last_ts, unit="ns",tz="UTC")})'
+    logger.warning(mssg) if action_timestamps_df["timestamp [ns]"].values[-1]>last_ts else logger.info(mssg)
+
     for section in neon_timestamps_df['section id'].unique():
         start_section = min(neon_timestamps_df[neon_timestamps_df['section id'] == section]['timestamp [ns]'])
         end_section = max(neon_timestamps_df[neon_timestamps_df['section id'] == section]['timestamp [ns]'])
@@ -109,4 +117,4 @@ def write_action_timestamp_csv(neon_timestamps_path, aligned_relative_action_ts)
 
     saving_path = Path(neon_timestamps_path).parent
     action_timestamps_df.to_csv(Path(saving_path,'action_camera_timestamps.csv'), index=False)
-    print(f"Timestamps for action camera recording saved at {Path(saving_path/'action_camera_timestamps.csv')}")
+    logger.info(f"Timestamps for action camera recording saved at {Path(saving_path/'action_camera_timestamps.csv')}")

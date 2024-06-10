@@ -2,6 +2,7 @@ import cv2 as cv
 import numpy as np
 import pandas as pd
 from pathlib import Path
+import logging
 from dataclasses import dataclass,asdict,field
 from abc import ABC, abstractmethod
 from utils import VideoHandler
@@ -24,6 +25,7 @@ class OpticFlowCalculatorBase(ABC):
         self.video_handler = VideoHandler(video_dir)
         self.results = pd.DataFrame.from_dict(
             dict(start=[], end=[], dx=[], dy=[], angle=[]))
+        self.logger = logging.getLogger(__name__)
 
     def process_video(self, start_time=None, end_time=None, output_file=None):
         """Method to calculate the optic flow in a defined video interval. Optic flow is calculated between consecutive frames in the interval.
@@ -83,7 +85,7 @@ class OpticFlowCalculatorBase(ABC):
         if optic_flow_data is None:
             optic_flow_data = self.results
         if Path(output_file).exists():
-            print('File already exists, appending to it') 
+            self.logger.warning('File already exists, appending to it') 
             optic_flow_file = pd.read_csv(output_file, dtype=np.float32)
             optic_flow_data = pd.concat([optic_flow_file, optic_flow_data],ignore_index=True)
         optic_flow_data.drop_duplicates(subset=['start','end'], keep='last', inplace=True)

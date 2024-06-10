@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 from pathlib import Path
 from utils import VideoHandler
+import logging
 
 
 def get_gaze_per_frame(gaze_file, video_timestamps):
@@ -131,6 +132,8 @@ def save_video(action_video_path,
         neon_gaze_path,
         save_video_path):
     
+    logger = logging.getLogger(__name__)
+    logger.setLevel(logging.INFO)
     action_coords = {matcher:get_gaze_per_frame(gaze_file=path, video_timestamps=action_worldtimestamps_path) for matcher,path in action_gaze_paths_dict.items()}
     neon_gaze_coords_list = get_gaze_per_frame(
         gaze_file=neon_gaze_path, video_timestamps=neon_worldtimestamps_path)
@@ -156,11 +159,10 @@ def save_video(action_video_path,
     video_width = video_width//len(action_gaze_dict.keys())
     
     fourcc = cv.VideoWriter_fourcc(*'XVID')
-    print(video_width, video_height)
     video = cv.VideoWriter(str(save_video_path), fourcc, int(
         action_video.fps), (video_width,video_height))
-    print(f'Saving video at {save_video_path}')
-
+    logger.info(f'Saving video at {save_video_path}')
+    logger.info(f'Video width: {video_width}, Video height: {video_height}')
     gaze_radius = 20
     gaze_thickness = 4
     gaze_color = (0, 0, 255)
@@ -195,7 +197,7 @@ def save_video(action_video_path,
         video.write(all_frames.astype(np.uint8))
     
     video.release()
-    print('Finished')
+    logger.info(f'Video saved at {save_video_path}')
 
 
 if __name__ == "__main__":

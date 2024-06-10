@@ -2,7 +2,7 @@ import numpy as np
 import scipy.signal
 import scipy.interpolate
 import pandas as pd
-
+import logging
 
 class OffsetCalculator():
     """ This class provides methods to estimate the time offset between two signals and calculate the Pearson correlation coefficient.
@@ -37,6 +37,7 @@ class OffsetCalculator():
         self.dst_resampled, self.dst_resampled_timestamps = self._resample_signal(
             self.dst, self.dst_timestamps, self.resampling_frequency)
         self.time_offset = None
+        self.logger = logging.getLogger(__name__)
 
     @staticmethod
     def _resample_signal(signal, timestamps, resampling_frequency=100):
@@ -60,16 +61,22 @@ class OffsetCalculator():
         if source_start_time is not None and source_end_time is not None:
             assert (source_start_time <
                     source_end_time), f"Start time ({source_start_time} s) must be smaller than end time ({source_end_time} s)"
+        
         start_index, end_index = self._obtain_indexes(
             self.src_resampled_timestamps, source_start_time, source_end_time)
+        
         crosscorrelation, lag_indexes = self._cross_correlate(
             self.src_resampled[start_index:end_index], self.dst_resampled)
         sampling_offset = lag_indexes[np.argmax(crosscorrelation)]
         correlation_score = self._correlation_coefficient(
             sampling_offset, self.src_resampled[start_index:end_index])
+        
         self.time_offset = (sampling_offset / self.resampling_frequency) - \
             self.src_resampled_timestamps[start_index] + \
             self.dst_resampled_timestamps[0]
+        
+        self.logger.info(f"With the interval going from {self.src_resampled_timestamps[start_index]}s to {self.src_resampled_timestamps[-1 if end_index is None else end_index]}s of the src signal, the estimated time offset is: {self.time_offset} seconds (Pearson correlation: {correlation_score})")
+        
         return self.time_offset, correlation_score
 
     def _obtain_indexes(self, timestamps, start_time, end_time):

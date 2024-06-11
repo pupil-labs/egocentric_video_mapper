@@ -110,7 +110,7 @@ def write_action_timestamp_csv(neon_timestamps_path, aligned_relative_action_ts)
     for section in neon_timestamps_df['section id'].unique():
         start_section = min(neon_timestamps_df[neon_timestamps_df['section id'] == section]['timestamp [ns]'])
         end_section = max(neon_timestamps_df[neon_timestamps_df['section id'] == section]['timestamp [ns]'])
-        action_timestamps_df.loc[(action_timestamps_df['timestamp [ns]']>=start_section)&(action_timestamps_df['timestamp [ns]']<end_section), 'section id'] = section
+        action_timestamps_df.loc[action_timestamps_df['timestamp [ns]'].between(start_section,end_section,inclusive='left'), 'section id'] = section
 
     action_timestamps_df.loc[(action_timestamps_df['section id'].isnull()) & (action_timestamps_df['timestamp [ns]']<first_ts), 'section id'] = neon_timestamps_df.loc[neon_timestamps_df['timestamp [ns]'] == first_ts,'section id'].values[0]
     action_timestamps_df.loc[(action_timestamps_df['section id'].isnull()) & (action_timestamps_df['timestamp [ns]']>=last_ts), 'section id'] = neon_timestamps_df.loc[neon_timestamps_df['timestamp [ns]'] == last_ts,'section id'].values[0]

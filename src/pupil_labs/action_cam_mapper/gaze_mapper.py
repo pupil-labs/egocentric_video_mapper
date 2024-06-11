@@ -31,7 +31,7 @@ class ActionCameraGazeMapper:
         self.neon_opticflow = pd.read_csv(neon_opticflow_csv,dtype=np.float32)
         self.action_opticflow = pd.read_csv(action_opticflow_csv,dtype=np.float32)
         self.neon_gaze = pd.read_csv(neon_gaze_csv)  # <- at 200Hz
-        self.action_gaze = self._create_action_gaze()
+        self.action_gaze = self._create_action_gaze_df()
         self.image_matcher = ImageMatcherFactory(
             image_matcher, image_matcher_parameters).get_matcher()
         self.patch_size = patch_size
@@ -39,8 +39,9 @@ class ActionCameraGazeMapper:
                                         [0, self.action_video.height/self.neon_video.height, 0],
                                         [0, 0, 1]], dtype=np.float32)
         self.logger = logging.getLogger(__name__)
+        self.logger.setLevel(logging.INFO)
 
-    def _create_action_gaze(self):
+    def _create_action_gaze_df(self):
         """Creates a DataFrame with the same formatting as the neon_gaze DataFrame, the 'gaze x [px]',
         'gaze y [px]', 'azimuth [deg]' and 'elevation [deg]' columns are filled with None values, while the rest of the columns keep the same values as the neon_gaze DataFrame.
 
@@ -130,12 +131,15 @@ class ActionCameraGazeMapper:
             for i, kp in enumerate(correspondences['keypoints0']):
                 if min(new_patch_corners[:,0])<kp[0]<max(new_patch_corners[:,0]) and min(new_patch_corners[:,1])<kp[1]<max(new_patch_corners[:,1]):
                     kept_kp_index.append(i)
+            
             if len(kept_kp_index) < 100: 
                 return correspondences, prev_patch_corners
+            
             for k in correspondences.keys():
                 correspondences[k]=correspondences[k][kept_kp_index]
             prev_patch_corners = new_patch_corners
             prev_patch_size = new_patch_size
+            self.logger.debug(f'Patch size reduced to {new_patch_size} with {len(kept_kp_index)} correspondences')
             if new_patch_size == 100:
                 self.logger.warning(f'Minimum patch size reached, returning {len(kept_kp_index)} correspondences found in patch of size 100')
                 return correspondences, prev_patch_corners

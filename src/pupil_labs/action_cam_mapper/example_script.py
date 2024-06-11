@@ -28,7 +28,6 @@ def get_gaze_per_frame(gaze_file, video_timestamps):
     gaze_ns = gaze_timestamps['timestamp [ns]'].to_numpy()
     list_coords = []
     for scene_time in scene_ns:
-        # matching scene timestamp to the smallest timestamp in gaze_ns that is greater than the scene timestamp, since gaze timestamping starts after world scene timestamping
         gaze_indexing = np.argmin(np.abs(gaze_ns-scene_time))
         coords = gaze_timestamps.iloc[gaze_indexing][['gaze x [px]', 'gaze y [px]']]
         list_coords.append(coords.to_numpy())
@@ -69,7 +68,6 @@ def calc_optic(neon_video,action_video,output_dir,of_choice='farneback'):
 def align_videos(action_result,neon_result,action_vid_path,neon_timestamps):
     offset_calc=OffsetCalculator(src=action_result['angle'].values,src_timestamps=action_result['start'].values, dst=neon_result['angle'].values, dst_timestamps=neon_result['start'].values,resampling_frequency=500)
     t_offset, pearson_corr = offset_calc.estimate_time_offset()
-    print(f'Estimated offset: {t_offset} seconds (Pearson correlation: {pearson_corr})')
     actionVid=VideoHandler(action_vid_path)
     write_action_timestamp_csv(neon_timestamps, actionVid.timestamps+t_offset)
 
@@ -119,14 +117,13 @@ def main(action_vid_path, neon_timeseries_dir, output_dir, image_matcher,optic_f
     logging.basicConfig(format='[%(levelname)s]  %(funcName)s function in %(name)s (%(asctime)s):  %(message)s',handlers=[logging.FileHandler(Path(output_dir,'whole_pipeline.log')),stream_handler],datefmt='%m/%d/%Y %I:%M:%S %p', level=logging.INFO)
     
     logger=logging.getLogger(__name__)
-    logger.setLevel(logging.INFO)
     logger.info(f'Results will be saved in {output_dir} unless specified otherwise by mssg')
 
-    #Step 1: Calculate optic flow
+    # Step 1: Calculate optic flow
     action_of_path, neon_of_path=calc_optic(neon_video=neon_vid_path,action_video=action_vid_path,output_dir=output_dir,of_choice=optic_flow_choice)
     logger.info('Optic flow for both videos calculated')
 
-    #Step 2: Estimate time offset and create action world timestamps
+    # Step 2: Estimate time offset and create action world timestamps
     action_result=pd.read_csv(action_of_path)
     neon_result=pd.read_csv(neon_of_path)
     align_videos(action_result,neon_result,action_vid_path,neon_timestamps)
@@ -136,21 +133,21 @@ def main(action_vid_path, neon_timeseries_dir, output_dir, image_matcher,optic_f
         logger.error(f'{action_timestamps} not created!')
         raise FileNotFoundError(f'{action_timestamps} not created!')
     
-    #Step 3: Map gaze
-    # action_gaze_csv=main_mapper(action_vid_path=action_vid_path,
-    #             neon_vid_path=neon_vid_path,
-    #             neon_timestamps=neon_timestamps,
-    #             action_timestamps=action_timestamps,
-    #             neon_gaze_csv=neon_gaze_csv,
-    #             neon_opticflow_csv=neon_of_path,
-    #             action_opticflow_csv=action_of_path,
-    #             output_dir=output_dir,
-    #             matcher=image_matcher,
-    #             optic_flow_choice=optic_flow_choice
-    #             )
-    # logger.info(f'Gaze mapped to action video: {action_gaze_csv}')
+    # Step 3: Map gaze
+    action_gaze_csv=main_mapper(action_vid_path=action_vid_path,
+                neon_vid_path=neon_vid_path,
+                neon_timestamps=neon_timestamps,
+                action_timestamps=action_timestamps,
+                neon_gaze_csv=neon_gaze_csv,
+                neon_opticflow_csv=neon_of_path,
+                action_opticflow_csv=action_of_path,
+                output_dir=output_dir,
+                matcher=image_matcher,
+                optic_flow_choice=optic_flow_choice
+                )
+    logger.info(f'Gaze mapped to action video: {action_gaze_csv}')
 
-    # #Step 4 (Optional): Render simultaneous videos with gaze in both
+    # # Step 4 (Optional): Render simultaneous videos with gaze in both
     # if render_video:
     #     video_path=Path(output_dir,f"video_render/Neon_Action_{image_matcher['choice']}_{optic_flow_choice}.mp4")
     #     Path(video_path).parent.mkdir(parents=True, exist_ok=True)
@@ -183,6 +180,6 @@ if __name__ == "__main__":
     main(action_vid_path=action_vid_path, 
         neon_timeseries_dir=neon_timeseries_path,
         output_dir=output_dir, 
-        image_matcher=image_matcher_lg,
+        image_matcher=image_matcher_loftr,
         optic_flow_choice='lk', 
         render_video=False)

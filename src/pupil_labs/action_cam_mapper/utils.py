@@ -5,29 +5,31 @@ import logging
 import pupil_labs.video as plv
 
 
-
-class VideoHandler():
+class VideoHandler:
     def __init__(self, video_path):
         self.path = video_path
         self.video_stream = self.open_video()
         self._timestamps = self.get_timestamps()
-        
+
     @property
     def height(self):
         return self.video_stream.height
-        
+
     @property
     def width(self):
         return self.video_stream.width
-    
+
     @property
     def timestamps(self):
         return self._timestamps
-    
+
     @property
     def fps(self):
-        return self.video_stream.average_rate.numerator/self.video_stream.average_rate.denominator
-    
+        return (
+            self.video_stream.average_rate.numerator
+            / self.video_stream.average_rate.denominator
+        )
+
     def open_video(self):
         container = plv.open(self.path)
         video_stream = container.streams.video[0]
@@ -35,47 +37,58 @@ class VideoHandler():
             raise ValueError(f"No video stream found in {self.path}")
         video_stream.logger.setLevel(logging.ERROR)
         return video_stream
-    
+
     def close_video(self):
         self.video_stream.close()
 
     def get_timestamps(self):
         video_timestamps = np.asarray(self.video_stream.pts)
-        video_timestamps = video_timestamps/self.video_stream.time_base.denominator
+        video_timestamps = video_timestamps / self.video_stream.time_base.denominator
         return np.asarray(video_timestamps, dtype=np.float32)
-    
+
     def get_frame_by_timestamp(self, timestamp):
         timestamp, timestamp_index = self.get_closest_timestamp(timestamp)
         frame = self.video_stream.frames[timestamp_index]
         frame = frame.to_image()
-        return np.asarray(frame) 
-        
+        return np.asarray(frame)
+
     def get_timestamps_in_interval(self, start_time=0, end_time=np.inf):
-        assert (start_time < end_time), f"Start time ({start_time} s) must be smaller than end time ({end_time} s)"
-        return self.timestamps[(self.timestamps >= start_time) & (self.timestamps <= end_time)]
-    
+        assert (
+            start_time < end_time
+        ), f"Start time ({start_time} s) must be smaller than end time ({end_time} s)"
+        return self.timestamps[
+            (self.timestamps >= start_time) & (self.timestamps <= end_time)
+        ]
+
     def get_closest_timestamp(self, time):
         after_index = np.searchsorted(self.timestamps, time)
-        before_index= after_index - 1
         if after_index == len(self.timestamps):
-            return self.timestamps[before_index], int(before_index)
+            after_index = len(self.timestamps) - 1
+        before_index = after_index - 1
+
         ts_after = self.timestamps[after_index]
         ts_before = self.timestamps[before_index]
+
         if np.abs(ts_after - time) < np.abs(ts_before - time):
             return ts_after, int(after_index)
         else:
             return ts_before, int(before_index)
-    
-    def get_surrounding_timestamps(self,time):
+
+    def get_surrounding_timestamps(self, time):
         closest_timestamp = self.get_closest_timestamp(time)
+
         if closest_timestamp > time:
-            previous_timestamp = self.timestamps[np.where(self.timestamps == closest_timestamp)[0][0]-1]
+            previous_timestamp = self.timestamps[
+                np.where(self.timestamps == closest_timestamp)[0][0] - 1
+            ]
             next_timestamp = closest_timestamp
         else:
             previous_timestamp = closest_timestamp
-            next_timestamp = self.timestamps[np.where(self.timestamps == closest_timestamp)[0][0]+1]
-        return previous_timestamp, next_timestamp
+            next_timestamp = self.timestamps[
+                np.where(self.timestamps == closest_timestamp)[0][0] + 1
+            ]
 
+        return previous_timestamp, next_timestamp
 
 
 def write_action_timestamp_csv(neon_timestamps_path, aligned_relative_action_ts):
@@ -83,38 +96,81 @@ def write_action_timestamp_csv(neon_timestamps_path, aligned_relative_action_ts)
 
     Args:
         neon_timestamps_path (str): Path to the world_timestamps.csv of the Neon recording
-        aligned_relative_action_ts (ndarray): Timestamps of the action camera recording, obtained from the metadata of the video file. This function assumes that the timestamps are already aligned with the relative Neon recording timestamps.  
+        aligned_relative_action_ts (ndarray): Timestamps of the action camera recording, obtained from the metadata of the video file. This function assumes that the timestamps are already aligned with the relative Neon recording timestamps.
     """
-    logger=logging.getLogger(__name__)
+    logger = logging.getLogger(__name__)
     logger.setLevel(logging.INFO)
 
     neon_timestamps_df = pd.read_csv(neon_timestamps_path)
     columns_for_mapping = neon_timestamps_df.columns
 
-    action_timestamps =np.int64(aligned_relative_action_ts/1e-9)
+    action_timestamps = np.int64(aligned_relative_action_ts / 1e-9)
     action_timestamps += neon_timestamps_df["timestamp [ns]"].iloc[0]
 
-    action_timestamps_df = pd.DataFrame.from_dict({col:[None for _ in action_timestamps] for col in columns_for_mapping})
-    action_timestamps_df['timestamp [ns]'] = action_timestamps
-    action_timestamps_df['recording id'] = neon_timestamps_df['recording id'].values[0]
-    
-    first_ts=neon_timestamps_df['timestamp [ns]'].values[0]
-    last_ts=neon_timestamps_df['timestamp [ns]'].values[-1]
-    
-    mssg= f'First timestamps of the action camera recording ({pd.Timestamp(action_timestamps_df["timestamp [ns]"].values[0],unit="ns",tz="UTC")}) is {"before" if action_timestamps_df["timestamp [ns]"].values[0]<first_ts else "after"} the first timestamp of the Neon Scene recording ({pd.Timestamp(first_ts,unit="ns",tz="UTC")})'
-    logger.warning(mssg) if action_timestamps_df["timestamp [ns]"].values[0]<first_ts else logger.info(mssg)
-    
-    mssg=f'Last timestamp of the action camera recording ({pd.Timestamp(action_timestamps_df["timestamp [ns]"].values[-1],unit="ns",tz="UTC")}) is {"before" if action_timestamps_df["timestamp [ns]"].values[-1]<last_ts else "after"} the last timestamp of the Neon recording ({pd.Timestamp(last_ts, unit="ns",tz="UTC")})'
-    logger.warning(mssg) if action_timestamps_df["timestamp [ns]"].values[-1]>last_ts else logger.info(mssg)
+    action_timestamps_df = pd.DataFrame.from_dict(
+        {col: [None for _ in action_timestamps] for col in columns_for_mapping}
+    )
+    action_timestamps_df["timestamp [ns]"] = action_timestamps
+    action_timestamps_df["recording id"] = neon_timestamps_df["recording id"].values[0]
 
-    for section in neon_timestamps_df['section id'].unique():
-        start_section = min(neon_timestamps_df[neon_timestamps_df['section id'] == section]['timestamp [ns]'])
-        end_section = max(neon_timestamps_df[neon_timestamps_df['section id'] == section]['timestamp [ns]'])
-        action_timestamps_df.loc[action_timestamps_df['timestamp [ns]'].between(start_section,end_section,inclusive='left'), 'section id'] = section
+    first_ts = neon_timestamps_df["timestamp [ns]"].values[0]
+    last_ts = neon_timestamps_df["timestamp [ns]"].values[-1]
 
-    action_timestamps_df.loc[(action_timestamps_df['section id'].isnull()) & (action_timestamps_df['timestamp [ns]']<first_ts), 'section id'] = neon_timestamps_df.loc[neon_timestamps_df['timestamp [ns]'] == first_ts,'section id'].values[0]
-    action_timestamps_df.loc[(action_timestamps_df['section id'].isnull()) & (action_timestamps_df['timestamp [ns]']>=last_ts), 'section id'] = neon_timestamps_df.loc[neon_timestamps_df['timestamp [ns]'] == last_ts,'section id'].values[0]
+    mssg = f'First timestamp of Action camera recording ({pd.Timestamp(action_timestamps_df["timestamp [ns]"].values[0],unit="ns")}) is {"before" if action_timestamps_df["timestamp [ns]"].values[0]<first_ts else "after"} the first timestamp of Neon Scene recording ({pd.Timestamp(first_ts,unit="ns")})'
+    (
+        logger.warning(mssg)
+        if action_timestamps_df["timestamp [ns]"].values[0] < first_ts
+        else logger.info(mssg)
+    )
+
+    mssg = f'Last timestamp of Action camera recording ({pd.Timestamp(action_timestamps_df["timestamp [ns]"].values[-1],unit="ns")}) is {"before" if action_timestamps_df["timestamp [ns]"].values[-1]<last_ts else "after"} the last timestamp of Neon Scene recording ({pd.Timestamp(last_ts, unit="ns")})'
+    (
+        logger.warning(mssg)
+        if action_timestamps_df["timestamp [ns]"].values[-1] > last_ts
+        else logger.info(mssg)
+    )
+
+    for section in neon_timestamps_df["section id"].unique():
+        start_section = min(
+            neon_timestamps_df[neon_timestamps_df["section id"] == section][
+                "timestamp [ns]"
+            ]
+        )
+        end_section = max(
+            neon_timestamps_df[neon_timestamps_df["section id"] == section][
+                "timestamp [ns]"
+            ]
+        )
+        action_timestamps_df.loc[
+            action_timestamps_df["timestamp [ns]"].between(
+                start_section, end_section, inclusive="left"
+            ),
+            "section id",
+        ] = section
+
+    action_timestamps_df.loc[
+        (action_timestamps_df["section id"].isnull())
+        & (action_timestamps_df["timestamp [ns]"] < first_ts),
+        "section id",
+    ] = neon_timestamps_df.loc[
+        neon_timestamps_df["timestamp [ns]"] == first_ts, "section id"
+    ].values[
+        0
+    ]
+    action_timestamps_df.loc[
+        (action_timestamps_df["section id"].isnull())
+        & (action_timestamps_df["timestamp [ns]"] >= last_ts),
+        "section id",
+    ] = neon_timestamps_df.loc[
+        neon_timestamps_df["timestamp [ns]"] == last_ts, "section id"
+    ].values[
+        0
+    ]
 
     saving_path = Path(neon_timestamps_path).parent
-    action_timestamps_df.to_csv(Path(saving_path,'action_camera_timestamps.csv'), index=False)
-    logger.info(f"Timestamps for action camera recording saved at {Path(saving_path/'action_camera_timestamps.csv')}")
+    action_timestamps_df.to_csv(
+        Path(saving_path, "action_camera_timestamps.csv"), index=False
+    )
+    logger.info(
+        f"Timestamps for action camera recording saved at {Path(saving_path/'action_camera_timestamps.csv')}"
+    )

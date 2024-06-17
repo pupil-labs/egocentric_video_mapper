@@ -160,12 +160,9 @@ class DISK_LightGlueImageMatcher(ImageMatcher):
 
 
 class ImageMatcherFactory:
-    def __init__(self, image_matcher, image_matcher_parameters):
+    def get_matcher(self, image_matcher, image_matcher_parameters):
         if image_matcher.upper() == "LOFTR":
-            self.matcher = LOFTRImageMatcher(**image_matcher_parameters)
+            return LOFTRImageMatcher(**image_matcher_parameters)
         # does all the ifs, switchcases and param settings specific to each matcher to instantiate the desired image matcher
         if image_matcher.upper() == "DISK_LIGHTGLUE":
-            self.matcher = DISK_LightGlueImageMatcher(**image_matcher_parameters)
-
-    def get_matcher(self):
-        return self.matcher
+            return DISK_LightGlueImageMatcher(**image_matcher_parameters)

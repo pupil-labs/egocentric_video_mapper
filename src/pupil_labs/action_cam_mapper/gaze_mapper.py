@@ -24,11 +24,11 @@ class ActionCameraGazeMapper:
         self.neon_video = VideoHandler(neon_video_dir)  # name consistency
         self.action_video = VideoHandler(action_video_dir)
 
-        self.neon_timestamps = pd.read_csv(neon_timestamps)
-        self.action_timestamps = pd.read_csv(action_timestamps)
+        self.neon_ts = pd.read_csv(neon_timestamps)
+        self.action_ts = pd.read_csv(action_timestamps)
         self.action2neon_offset = (
-            self.action_timestamps["timestamp [ns]"].values[0]
-            - self.neon_timestamps["timestamp [ns]"].values[0]
+            self.action_ts["timestamp [ns]"].values[0]
+            - self.neon_ts["timestamp [ns]"].values[0]
         ) / 1e9
 
         self.neon_opticflow = pd.read_csv(neon_opticflow_csv, dtype=np.float32)
@@ -37,9 +37,9 @@ class ActionCameraGazeMapper:
         self.neon_gaze = pd.read_csv(neon_gaze_csv)  # <- at 200Hz
         self.action_gaze = self._create_action_gaze_df()
 
-        self.image_matcher = ImageMatcherFactory(
+        self.image_matcher = ImageMatcherFactory().get_matcher(
             image_matcher, image_matcher_parameters
-        ).get_matcher()
+        )
 
         self.patch_size = patch_size
         self.transformation = np.array(
@@ -67,6 +67,7 @@ class ActionCameraGazeMapper:
                 for col in self.neon_gaze.columns
             }
         )
+
         action_dataframe.loc[
             :,
             [
@@ -87,62 +88,64 @@ class ActionCameraGazeMapper:
                 "blink id",
             ]
         ].values
+
         action_dataframe = action_dataframe[
             action_dataframe["timestamp [ns]"]
-            >= self.action_timestamps["timestamp [ns]"].values[0]
+            >= self.action_ts["timestamp [ns]"].values[0]
         ]
         action_dataframe = action_dataframe[
             action_dataframe["timestamp [ns]"]
-            <= self.action_timestamps["timestamp [ns]"].values[-1]
+            <= self.action_ts["timestamp [ns]"].values[-1]
         ]
+
         return action_dataframe
 
     def map_gaze(self, saving_path=None):
 
-        for i, gaze_world_ts in enumerate(self.action_gaze["timestamp [ns]"].values):
+        for i, gaze_ts in enumerate(self.action_gaze["timestamp [ns]"].values):
+            self.logger.info(f"({i}) Calculating gaze transformation")
+
             gaze_neon = self.neon_gaze.loc[
-                self.neon_gaze["timestamp [ns]"] == gaze_world_ts,
+                self.neon_gaze["timestamp [ns]"] == gaze_ts,
                 ["gaze x [px]", "gaze y [px]"],
             ].values.reshape(1, 2)
-            gaze_relative_timestamp = (
-                gaze_world_ts - self.neon_timestamps["timestamp [ns]"].values[0]
+            gaze_relative_ts = (
+                gaze_ts - self.neon_ts["timestamp [ns]"].values[0]
             ) / 1e9
-            neon_timestamp = self.neon_video.get_closest_timestamp(
-                gaze_relative_timestamp
-            )[0]
-            action_timestamp = self.action_video.get_closest_timestamp(
-                neon_timestamp - self.action2neon_offset
+            neon_relative_ts = self.neon_video.get_closest_timestamp(gaze_relative_ts)[
+                0
+            ]
+            action_relative_ts = self.action_video.get_closest_timestamp(
+                neon_relative_ts - self.action2neon_offset
             )[0]
 
-            if self._gaze_between_video_frames(gaze_world_ts):
+            if self._gaze_between_video_frames(gaze_ts):
                 semantically_correct_gaze = self._move_point_to_video_timestamp(
                     gaze_neon,
-                    gaze_relative_timestamp,
-                    neon_timestamp,
+                    gaze_relative_ts,
+                    neon_relative_ts,
                     self.neon_opticflow,
                 )
                 gaze_action_camera = self._map_one_gaze(
-                    semantically_correct_gaze, neon_timestamp, action_timestamp
+                    semantically_correct_gaze, neon_relative_ts, action_relative_ts
                 )
-                print(f"AC Gaze before moving it:{gaze_action_camera}")
                 gaze_action_camera = self._move_point_to_arbitrary_timestamp(
                     gaze_action_camera,
-                    action_timestamp,
+                    action_relative_ts,
                     self.action_opticflow,
-                    gaze_world_ts,
+                    gaze_relative_ts - self.action2neon_offset,
                 )
             else:
                 gaze_action_camera = self._map_one_gaze(
-                    gaze_neon, neon_timestamp, action_timestamp
+                    gaze_neon, neon_relative_ts, action_relative_ts
                 )
+
             self.logger.info(
-                f"({i}) Gaze ({gaze_neon}) at {gaze_world_ts} mapped to {gaze_action_camera}"
+                f"({i}) Gaze ({gaze_neon}) at {gaze_ts} mapped to {gaze_action_camera}"
             )
-            print(
-                f"({i}) Gaze ({gaze_neon}) at {gaze_world_ts} mapped to {gaze_action_camera}"
-            )
+
             self.action_gaze.loc[
-                self.action_gaze["timestamp [ns]"] == gaze_world_ts,
+                self.action_gaze["timestamp [ns]"] == gaze_ts,
                 ["gaze x [px]", "gaze y [px]"],
             ] = gaze_action_camera
 
@@ -156,39 +159,37 @@ class ActionCameraGazeMapper:
     def _gaze_between_video_frames(self, gaze_timestamp):
         return (
             max(
-                self.neon_timestamps["timestamp [ns]"].values[0],
-                self.action_timestamps["timestamp [ns]"].values[0],
+                self.neon_ts["timestamp [ns]"].values[0],
+                self.action_ts["timestamp [ns]"].values[0],
             )
             < gaze_timestamp
             < min(
-                self.neon_timestamps["timestamp [ns]"].values[-1],
-                self.action_timestamps["timestamp [ns]"].values[-1],
+                self.neon_ts["timestamp [ns]"].values[-1],
+                self.action_ts["timestamp [ns]"].values[-1],
             )
         )
 
-    def _map_one_gaze(self, gaze_coordinates, neon_timestamp, action_timestamp):
+    def _map_one_gaze(self, gaze_coords, neon_timestamp, action_timestamp):
         action_frame = self.action_video.get_frame_by_timestamp(action_timestamp)
         neon_frame = self.neon_video.get_frame_by_timestamp(neon_timestamp)
+
         if np.all(neon_frame == 100):
-            # self.logger.warning(f"Neon frame at {neon_timestamp} is all gray")
-            print(f"Neon frame at {neon_timestamp} is all gray")
-            return gaze_coordinates
+            self.logger.warning(f"Neon frame at {neon_timestamp} is all gray")
+            return gaze_coords
+
         patch_corners = self._get_patch_corners(
-            self.patch_size, gaze_coordinates, neon_frame.shape
+            self.patch_size, gaze_coords, neon_frame.shape
         )
         correspondences = self.image_matcher.get_correspondences(
             neon_frame, action_frame, patch_corners
         )
         correspondences, new_patch_corners = self._filter_correspondences(
-            correspondences.copy(), gaze_coordinates, neon_frame.shape
+            correspondences.copy(), gaze_coords, neon_frame.shape
         )
         self.logger.info(
             f'Number of correspondences: {len(correspondences["keypoints0"])} at {abs(new_patch_corners[0,0]-new_patch_corners[2,0])} patch size'
         )
-        print(
-            f'Number of correspondences: {len(correspondences["keypoints0"])} at {abs(new_patch_corners[0,0]-new_patch_corners[2,0])} patch size'
-        )
-        gaze_in_action_camera = self._transform_point(correspondences, gaze_coordinates)
+        gaze_in_action_camera = self._transform_point(correspondences, gaze_coords)
         return gaze_in_action_camera
 
     def _transform_point(self, correspondences, point_to_be_transformed):
@@ -301,12 +302,7 @@ class ActionCameraGazeMapper:
     def _move_point_to_arbitrary_timestamp(
         self, point_coordinates, video_timestamp, opticflow, target_timestamp
     ):
-        gaze_relative_timestamp = (
-            target_timestamp - self.neon_timestamps["timestamp [ns]"].values[0]
-        ) / 1e9
-
-        aligned_video_timestamp = video_timestamp + self.action2neon_offset
-        time_difference = gaze_relative_timestamp - aligned_video_timestamp
+        time_difference = target_timestamp - video_timestamp
         if time_difference == 0:
             return point_coordinates
         elif (
@@ -365,8 +361,8 @@ class ActionCameraGazeMapper2(ActionCameraGazeMapper):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.corresponding_action_idx = self._get_corresponding_timestamps_index(
-            self.action_timestamps["timestamp [ns]"].values,
-            self.neon_timestamps["timestamp [ns]"].values,
+            self.action_ts["timestamp [ns]"].values,
+            self.neon_ts["timestamp [ns]"].values,
         )
 
     @staticmethod
@@ -398,24 +394,22 @@ class ActionCameraGazeMapper2(ActionCameraGazeMapper):
         neon_start_idx = self.neon_video.get_closest_timestamp(
             (
                 self.action_gaze["timestamp [ns]"].values[0]
-                - self.neon_timestamps["timestamp [ns]"].values[0]
+                - self.neon_ts["timestamp [ns]"].values[0]
             )
             / 1e9
         )[1]
         for i, neon_ts in enumerate(
-            self.neon_timestamps["timestamp [ns]"].values[neon_start_idx:],
+            self.neon_ts["timestamp [ns]"].values[neon_start_idx:],
             start=neon_start_idx,
         ):
             lower_bound = (
-                neon_ts
-                - (neon_ts - self.neon_timestamps["timestamp [ns]"].values[i - 1]) / 2
+                neon_ts - (neon_ts - self.neon_ts["timestamp [ns]"].values[i - 1]) / 2
                 if i > 0
                 else 0
             )
             upper_bound = (
-                neon_ts
-                + (self.neon_timestamps["timestamp [ns]"].values[i + 1] - neon_ts) / 2
-                if i < len(self.neon_timestamps["timestamp [ns]"].values) - 1
+                neon_ts + (self.neon_ts["timestamp [ns]"].values[i + 1] - neon_ts) / 2
+                if i < len(self.neon_ts["timestamp [ns]"].values) - 1
                 else np.inf
             )
             gazes_for_this_frame = self.action_gaze.loc[
@@ -429,10 +423,10 @@ class ActionCameraGazeMapper2(ActionCameraGazeMapper):
                 self.corresponding_action_idx[i]
             ]
             self.logger.info(
-                f'({i}) Mapping {len(gazes_for_this_frame)} gazes from neon frame at {neon_ts}({neon_relative_ts}) to action camera frame at {self.action_timestamps["timestamp [ns]"].values[self.corresponding_action_idx[i]]}({action_relative_ts})'
+                f'({i}) Mapping {len(gazes_for_this_frame)} gazes from neon frame at {neon_ts}({neon_relative_ts}) to action camera frame at {self.action_ts["timestamp [ns]"].values[self.corresponding_action_idx[i]]}({action_relative_ts})'
             )
             print(
-                f'({i}) Mapping {len(gazes_for_this_frame)} gazes from neon frame at {neon_ts}({neon_relative_ts}) to action camera frame at {self.action_timestamps["timestamp [ns]"].values[self.corresponding_action_idx[i]]}({action_relative_ts})'
+                f'({i}) Mapping {len(gazes_for_this_frame)} gazes from neon frame at {neon_ts}({neon_relative_ts}) to action camera frame at {self.action_ts["timestamp [ns]"].values[self.corresponding_action_idx[i]]}({action_relative_ts})'
             )
             neon_frame = self.neon_video.get_frame_by_timestamp(neon_relative_ts)
             action_frame = self.action_video.get_frame_by_timestamp(action_relative_ts)
@@ -443,7 +437,7 @@ class ActionCameraGazeMapper2(ActionCameraGazeMapper):
                     ["gaze x [px]", "gaze y [px]"],
                 ].values.reshape(1, 2)
                 gaze_relative_ts = (
-                    gaze_ts - self.neon_timestamps["timestamp [ns]"].values[0]
+                    gaze_ts - self.neon_ts["timestamp [ns]"].values[0]
                 ) / 1e9
                 if self._gaze_between_video_frames(gaze_ts):
                     semantic_gaze = self._move_point_to_video_timestamp(
@@ -454,18 +448,18 @@ class ActionCameraGazeMapper2(ActionCameraGazeMapper):
                     )
                     gaze_action_camera = self._map_one_gaze(
                         semantic_gaze, neon_frame, action_frame
-                    )
+                    )[0]
                     print(f"AC Gaze before moving it:{gaze_action_camera}")
                     gaze_action_camera = self._move_point_to_arbitrary_timestamp(
                         gaze_action_camera,
                         action_relative_ts,
                         self.action_opticflow,
-                        gaze_ts,
+                        gaze_relative_ts - self.action2neon_offset,
                     )
                 else:
                     gaze_action_camera = self._map_one_gaze(
                         gaze_neon, neon_frame, action_frame
-                    )
+                    )[0]
                 self.logger.info(
                     f"- Gaze ({gaze_neon}) at {gaze_relative_ts} mapped to {gaze_action_camera}"
                 )
@@ -494,14 +488,266 @@ class ActionCameraGazeMapper2(ActionCameraGazeMapper):
         correspondences = self.image_matcher.get_correspondences(
             neon_frame, action_frame, patch_corners
         )
-        correspondences, new_patch_corners = self._filter_correspondences(
+        filt_correspondences, new_patch_corners = self._filter_correspondences(
             correspondences.copy(), gaze_coordinates, neon_frame.shape
         )
         self.logger.info(
-            f'Number of correspondences: {len(correspondences["keypoints0"])} at {abs(new_patch_corners[0,0]-new_patch_corners[2,0])} patch size'
+            f'Number of correspondences: {len(filt_correspondences["keypoints0"])} at {abs(new_patch_corners[0,0]-new_patch_corners[2,0])} patch size'
         )
         print(
-            f'Number of correspondences: {len(correspondences["keypoints0"])} at {abs(new_patch_corners[0,0]-new_patch_corners[2,0])} patch size'
+            f'Number of correspondences: {len(filt_correspondences["keypoints0"])} at {abs(new_patch_corners[0,0]-new_patch_corners[2,0])} patch size'
         )
-        gaze_in_action_camera = self._transform_point(correspondences, gaze_coordinates)
+        gaze_in_action_camera = self._transform_point(
+            filt_correspondences, gaze_coordinates
+        )
+        return gaze_in_action_camera, correspondences
+
+
+class RulesBasedGazeMapper(ActionCameraGazeMapper):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.corresponding_action_idx = self._get_corresponding_timestamps_index(
+            self.action_ts["timestamp [ns]"].values,
+            self.action_gaze["timestamp [ns]"].values,
+        )
+        self.corresponding_neon_idx = self._get_corresponding_timestamps_index(
+            self.neon_ts["timestamp [ns]"].values,
+            self.action_gaze["timestamp [ns]"].values,
+        )
+
+    @staticmethod
+    def _get_corresponding_timestamps_index(timestamps_1, timestamps_2):
+        """For each timestamp in timestamps_2, finds the index of the closest timestamp in timestamps_1
+        Args:
+            timestamps_1 (_type_): 1-DIM array with timestamps
+            timestamps_2 (_type_): 1-DIM array with timestamps to be compared with timestamps_1
+
+        Returns:
+            ndarray: 1-DIM array with the indexes of the timestamps_1 that are closest to the timestamps_2. Same length as timestamps_2
+        """
+        after_posiciones = np.searchsorted(timestamps_1, timestamps_2)
+        before_posiciones = after_posiciones - 1
+        before_posiciones[before_posiciones == -1] = 0
+        after_posiciones[after_posiciones == len(timestamps_1)] = len(timestamps_1) - 1
+
+        after_diff = timestamps_1[after_posiciones] - timestamps_2
+        before_diff = timestamps_2 - timestamps_1[before_posiciones]
+
+        stacked_diff = np.array([after_diff, before_diff])
+        stacked_posiciones = np.array([after_posiciones, before_posiciones])
+        selected_indexes = np.argmin(np.abs(stacked_diff), axis=0, keepdims=True)
+        indexes = np.take_along_axis(stacked_posiciones, selected_indexes, axis=0)
+        indexes.shape = -1
+        return indexes
+
+    def map_gaze(
+        self,
+        saving_path=None,
+        refresh_thrshld=100,
+        opticf_threshold=20,
+        gaze_change_thrshld=50,
+    ):
+        gazes_since_refresh = 0
+
+        for i, gaze_ts in enumerate(self.action_gaze["timestamp [ns]"].values):
+
+            gaze_neon = self.neon_gaze.loc[
+                self.neon_gaze["timestamp [ns]"] == gaze_ts,
+                ["gaze x [px]", "gaze y [px]"],
+            ].values.reshape(1, 2)
+
+            gaze_relative_ts, neon_relative_ts, action_relative_ts = (
+                self._obtain_relative_ts(gaze_ts, i)
+            )
+            self.logger.info(f"({i}) Transforming gaze {gaze_neon} at {gaze_ts}")
+            print(f"({i}) Transforming gaze {gaze_neon} at {gaze_relative_ts}")
+
+            if self._gaze_between_video_frames(gaze_ts):
+                gaze_neon = self._move_point_to_video_timestamp(
+                    gaze_neon,
+                    gaze_relative_ts,
+                    neon_relative_ts,
+                    self.neon_opticflow,
+                )
+
+            # handling frame retrieval
+            if i == 0 or (
+                self.corresponding_neon_idx[i] != self.corresponding_neon_idx[i - 1]
+            ):
+                neon_frame = self.neon_video.get_frame_by_timestamp(neon_relative_ts)
+                if i > 0:
+                    acc_neon_opticflow += self.neon_opticflow.loc[
+                        self.neon_opticflow["end"] == neon_relative_ts, ["dx", "dy"]
+                    ].values
+                else:
+                    acc_neon_opticflow = 0
+                if hasattr(self, "correspondences"):
+                    print(f"Moving keypoints0 to {neon_relative_ts}")
+                    self.correspondences["keypoints0"] = (
+                        self._move_point_to_video_timestamp(
+                            self.correspondences["keypoints0"],
+                            self.neon_video.timestamps[
+                                self.corresponding_neon_idx[i - 1]
+                            ],
+                            neon_relative_ts,
+                            self.neon_opticflow,
+                        )
+                    )
+
+            if i == 0 or (
+                self.corresponding_action_idx[i] != self.corresponding_action_idx[i - 1]
+            ):
+                action_frame = self.action_video.get_frame_by_timestamp(
+                    action_relative_ts
+                )
+                if i > 0:
+                    acc_action_opticflow += self.action_opticflow.loc[
+                        self.action_opticflow["end"] == action_relative_ts, ["dx", "dy"]
+                    ].values
+                else:
+                    acc_action_opticflow = 0
+                if hasattr(self, "correspondences"):
+                    print(f"Moving keypoints1 to {action_relative_ts}")
+                    self.correspondences["keypoints1"] = (
+                        self._move_point_to_video_timestamp(
+                            self.correspondences["keypoints1"],
+                            self.action_video.timestamps[
+                                self.corresponding_action_idx[i - 1]
+                            ],
+                            action_relative_ts,
+                            self.action_opticflow,
+                        )
+                    )
+
+            if i == 0 or gazes_since_refresh == refresh_thrshld:
+                self.logger.info("Refreshing transformation")
+                print("-Refreshing transformation")
+
+                gaze_action_camera = self._map_one_gaze(
+                    gaze_neon, neon_frame, action_frame
+                )
+
+                gazes_since_refresh = 0
+                acc_action_opticflow = 0
+                acc_neon_opticflow = 0
+
+            elif np.linalg.norm(last_gaze - gaze_neon) > gaze_change_thrshld:
+                self.logger.info(f"Large gaze jump detected, refreshing transformation")
+
+                gaze_action_camera = self._map_one_gaze(
+                    gaze_neon, neon_frame, action_frame
+                )
+
+                gazes_since_refresh = 0
+                acc_action_opticflow = 0
+                acc_neon_opticflow = 0
+
+            elif (
+                np.linalg.norm(acc_action_opticflow) > opticf_threshold
+                or np.linalg.norm(acc_neon_opticflow) > opticf_threshold
+            ):
+                self.logger.info(
+                    f"Optic flow threshold reached, refreshing transformation"
+                )
+
+                gaze_action_camera = self._map_one_gaze(
+                    gaze_neon, neon_frame, action_frame
+                )
+
+                gazes_since_refresh = 0
+                acc_action_opticflow = 0
+                acc_neon_opticflow = 0
+
+            else:
+                if np.all(neon_frame == 100):
+                    self.logger.info(f"Neon frame is all gray")
+                    print(f"-Neon frame is all gray (in else)")
+                    gaze_action_camera = gaze_neon
+                elif hasattr(self, "correspondences"):
+                    self.logger.info(f"Mapping gaze with the existing correspondences")
+                    print(
+                        f"-Mapping gaze with the existing correspondences ({len(self.correspondences['keypoints0'])})"
+                    )
+
+                    filt_correspondences, new_patch_corners = (
+                        self._filter_correspondences(
+                            self.correspondences.copy(), gaze_neon, neon_frame.shape
+                        )
+                    )
+
+                    self.logger.info(
+                        f'Number of correspondences: {len(filt_correspondences["keypoints0"])} at {abs(new_patch_corners[0,0]-new_patch_corners[2,0])} patch size'
+                    )
+
+                    gaze_action_camera = self._transform_point(
+                        filt_correspondences, gaze_neon
+                    )
+                else:
+                    print(f"-Mapping gaze with the new correspondences (in else)")
+                    gaze_action_camera = self._map_one_gaze(
+                        gaze_neon, neon_frame, action_frame
+                    )
+                    gazes_since_refresh = 0
+                    acc_action_opticflow = 0
+                    acc_neon_opticflow = 0
+
+            if self._gaze_between_video_frames(gaze_ts):
+                gaze_action_camera = self._move_point_to_arbitrary_timestamp(
+                    gaze_action_camera,
+                    action_relative_ts,
+                    self.action_opticflow,
+                    gaze_relative_ts - self.action2neon_offset,
+                )
+
+            self.logger.info(f"({i}) Gaze mapped to {gaze_action_camera}")
+            print(f"({i}) Gaze mapped to {gaze_action_camera}")
+            self.action_gaze.loc[
+                self.action_gaze["timestamp [ns]"] == gaze_ts,
+                ["gaze x [px]", "gaze y [px]"],
+            ] = gaze_action_camera
+
+            gazes_since_refresh += 1
+            last_gaze = gaze_neon
+
+        self.action_gaze.to_csv(
+            (
+                Path(self.neon_video.path).parent / "action_gaze.csv"
+                if saving_path is None
+                else saving_path
+            ),
+            index=False,
+        )
+
+    def _obtain_relative_ts(self, gaze_ts, gaze_index):
+        gaze_relative_ts = (gaze_ts - self.neon_ts["timestamp [ns]"].values[0]) / 1e9
+        neon_relative_ts = self.neon_video.timestamps[
+            self.corresponding_neon_idx[gaze_index]
+        ]
+        action_relative_ts = self.action_video.timestamps[
+            self.corresponding_action_idx[gaze_index]
+        ]
+        return gaze_relative_ts, neon_relative_ts, action_relative_ts
+
+    def _map_one_gaze(self, gaze_coords, neon_frame, action_frame):
+        gaze_in_action_camera = gaze_coords
+
+        if np.all(neon_frame == 100):
+            self.logger.warning(f"Neon frame is all gray")
+        else:
+            patch_corners = self._get_patch_corners(
+                self.patch_size, gaze_coords, neon_frame.shape
+            )
+
+            self.correspondences = self.image_matcher.get_correspondences(
+                neon_frame, action_frame, patch_corners
+            )
+            filt_correspondences, new_patch_corners = self._filter_correspondences(
+                self.correspondences.copy(), gaze_coords, neon_frame.shape
+            )
+            self.logger.info(
+                f'Number of correspondences: {len(filt_correspondences["keypoints0"])} at {abs(new_patch_corners[0,0]-new_patch_corners[2,0])} patch size'
+            )
+            gaze_in_action_camera = self._transform_point(
+                filt_correspondences, gaze_coords
+            )
         return gaze_in_action_camera

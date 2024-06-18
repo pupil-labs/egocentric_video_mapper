@@ -540,6 +540,46 @@ class RulesBasedGazeMapper(ActionCameraGazeMapper):
         indexes.shape = -1
         return indexes
 
+    def _step_through_video(self, i, video_type):
+        relative_ts = (
+            self.neon_video.timestamps[self.corresponding_neon_idx[i]]
+            if video_type == "neon"
+            else self.action_video.timestamps[self.corresponding_action_idx[i]]
+        )
+        frame = (
+            self.neon_video.get_frame_by_timestamp(relative_ts)
+            if video_type == "neon"
+            else self.action_video.get_frame_by_timestamp(relative_ts)
+        )
+        if i > 0:
+            opticflow = (
+                self.neon_opticflow.loc[
+                    self.neon_opticflow["end"] == relative_ts, ["dx", "dy"]
+                ].values
+                if video_type == "neon"
+                else self.action_opticflow.loc[
+                    self.action_opticflow["end"] == relative_ts, ["dx", "dy"]
+                ].values
+            )
+        else:
+            opticflow = 0
+
+        if hasattr(self, "correspondences"):
+            selected_kp = "keypoints0" if video_type == "neon" else "keypoints1"
+            prev_ts = (
+                self.neon_video.timestamps[self.corresponding_neon_idx[i - 1]]
+                if video_type == "neon"
+                else self.action_video.timestamps[self.corresponding_action_idx[i - 1]]
+            )
+            print(f"Moving {selected_kp} to {relative_ts}")
+            self.correspondences[selected_kp] = self._move_point_to_video_timestamp(
+                self.correspondences[selected_kp],
+                prev_ts,
+                relative_ts,
+                self.neon_opticflow if video_type == "neon" else self.action_opticflow,
+            )
+        return frame, opticflow
+
     def map_gaze(
         self,
         saving_path=None,
@@ -548,6 +588,8 @@ class RulesBasedGazeMapper(ActionCameraGazeMapper):
         gaze_change_thrshld=50,
     ):
         gazes_since_refresh = 0
+        acc_action_opticflow = 0
+        acc_neon_opticflow = 0
 
         for i, gaze_ts in enumerate(self.action_gaze["timestamp [ns]"].values):
 
@@ -574,50 +616,14 @@ class RulesBasedGazeMapper(ActionCameraGazeMapper):
             if i == 0 or (
                 self.corresponding_neon_idx[i] != self.corresponding_neon_idx[i - 1]
             ):
-                neon_frame = self.neon_video.get_frame_by_timestamp(neon_relative_ts)
-                if i > 0:
-                    acc_neon_opticflow += self.neon_opticflow.loc[
-                        self.neon_opticflow["end"] == neon_relative_ts, ["dx", "dy"]
-                    ].values
-                else:
-                    acc_neon_opticflow = 0
-                if hasattr(self, "correspondences"):
-                    print(f"Moving keypoints0 to {neon_relative_ts}")
-                    self.correspondences["keypoints0"] = (
-                        self._move_point_to_video_timestamp(
-                            self.correspondences["keypoints0"],
-                            self.neon_video.timestamps[
-                                self.corresponding_neon_idx[i - 1]
-                            ],
-                            neon_relative_ts,
-                            self.neon_opticflow,
-                        )
-                    )
+                neon_frame, neon_opticflow = self._step_through_video(i, "neon")
+                acc_neon_opticflow += neon_opticflow
 
             if i == 0 or (
                 self.corresponding_action_idx[i] != self.corresponding_action_idx[i - 1]
             ):
-                action_frame = self.action_video.get_frame_by_timestamp(
-                    action_relative_ts
-                )
-                if i > 0:
-                    acc_action_opticflow += self.action_opticflow.loc[
-                        self.action_opticflow["end"] == action_relative_ts, ["dx", "dy"]
-                    ].values
-                else:
-                    acc_action_opticflow = 0
-                if hasattr(self, "correspondences"):
-                    print(f"Moving keypoints1 to {action_relative_ts}")
-                    self.correspondences["keypoints1"] = (
-                        self._move_point_to_video_timestamp(
-                            self.correspondences["keypoints1"],
-                            self.action_video.timestamps[
-                                self.corresponding_action_idx[i - 1]
-                            ],
-                            action_relative_ts,
-                            self.action_opticflow,
-                        )
-                    )
+                action_frame, action_opticflow = self._step_through_video(i, "action")
+                acc_action_opticflow += action_opticflow
 
             if i == 0 or gazes_since_refresh == refresh_thrshld:
                 self.logger.info("Refreshing transformation")

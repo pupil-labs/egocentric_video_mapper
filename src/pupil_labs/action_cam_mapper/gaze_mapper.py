@@ -745,6 +745,7 @@ class RulesBasedGazeMapper(ActionCameraGazeMapper):
             self.correspondences = self.image_matcher.get_correspondences(
                 neon_frame, action_frame, patch_corners
             )
+            self.logger.info("Matcher was called")
             filt_correspondences, new_patch_corners = self._filter_correspondences(
                 self.correspondences.copy(), gaze_coords, neon_frame.shape
             )

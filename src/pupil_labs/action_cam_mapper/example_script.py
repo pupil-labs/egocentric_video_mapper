@@ -6,7 +6,11 @@ import logging
 from optic_flow import OpticFlowCalculatorLK, OpticFlowCalculatorFarneback
 from utils import VideoHandler, write_action_timestamp_csv
 from sync_videos import OffsetCalculator
-from gaze_mapper import ActionCameraGazeMapper, ActionCameraGazeMapper2
+from gaze_mapper import (
+    ActionCameraGazeMapper,
+    ActionCameraGazeMapper2,
+    RulesBasedGazeMapper,
+)
 from video_renderer import save_video
 from pathlib import Path
 
@@ -82,6 +86,7 @@ def align_videos(action_result, neon_result, action_vid_path, neon_timestamps):
 
 
 def main_mapper(
+    mapper_choice,
     action_vid_path,
     neon_vid_path,
     neon_timestamps,
@@ -98,19 +103,46 @@ def main_mapper(
 
     param = matcher["parameters"]
     print(f'Using {matcher["choice"]} with parameters: {param}')
+    if mapper_choice == 1:
+        mapper = ActionCameraGazeMapper(
+            neon_gaze_csv=neon_gaze_csv,
+            neon_video_dir=neon_vid_path,
+            action_video_dir=action_vid_path,
+            neon_timestamps=neon_timestamps,
+            action_timestamps=action_timestamps,
+            image_matcher=matcher["choice"],
+            image_matcher_parameters=param,
+            neon_opticflow_csv=neon_opticflow_csv,
+            action_opticflow_csv=action_opticflow_csv,
+            patch_size=1000,
+        )
+    elif mapper_choice == 2:
+        mapper = ActionCameraGazeMapper2(
+            neon_gaze_csv=neon_gaze_csv,
+            neon_video_dir=neon_vid_path,
+            action_video_dir=action_vid_path,
+            neon_timestamps=neon_timestamps,
+            action_timestamps=action_timestamps,
+            image_matcher=matcher["choice"],
+            image_matcher_parameters=param,
+            neon_opticflow_csv=neon_opticflow_csv,
+            action_opticflow_csv=action_opticflow_csv,
+            patch_size=1000,
+        )
+    else:
+        mapper = RulesBasedGazeMapper(
+            neon_gaze_csv=neon_gaze_csv,
+            neon_video_dir=neon_vid_path,
+            action_video_dir=action_vid_path,
+            neon_timestamps=neon_timestamps,
+            action_timestamps=action_timestamps,
+            image_matcher=matcher["choice"],
+            image_matcher_parameters=param,
+            neon_opticflow_csv=neon_opticflow_csv,
+            action_opticflow_csv=action_opticflow_csv,
+            patch_size=1000,
+        )
 
-    mapper = ActionCameraGazeMapper2(
-        neon_gaze_csv=neon_gaze_csv,
-        neon_video_dir=neon_vid_path,
-        action_video_dir=action_vid_path,
-        neon_timestamps=neon_timestamps,
-        action_timestamps=action_timestamps,
-        image_matcher=matcher["choice"],
-        image_matcher_parameters=param,
-        neon_opticflow_csv=neon_opticflow_csv,
-        action_opticflow_csv=action_opticflow_csv,
-        patch_size=1000,
-    )
     gaze_csv_path = Path(output_dir, f"action_gaze_{optic_flow_choice}.csv")
     mapper.map_gaze(saving_path=gaze_csv_path)
     return gaze_csv_path
@@ -122,6 +154,7 @@ def main(
     output_dir,
     image_matcher,
     optic_flow_choice="lk",
+    mapper_choice=1,
     render_video=False,
 ):
 
@@ -174,6 +207,7 @@ def main(
 
     # Step 3: Map gaze
     action_gaze_csv = main_mapper(
+        mapper_choice=mapper_choice,
         action_vid_path=action_vid_path,
         neon_vid_path=neon_vid_path,
         neon_timestamps=neon_timestamps,
@@ -231,5 +265,6 @@ if __name__ == "__main__":
         output_dir=output_dir,
         image_matcher=image_matcher_loftr,
         optic_flow_choice="lk",
+        mapper_choice=1,
         render_video=False,
     )

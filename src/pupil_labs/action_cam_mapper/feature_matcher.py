@@ -39,20 +39,26 @@ class LOFTRImageMatcher(ImageMatcher):
             else src_image.copy()
         )
         src_tensor, src_scaled2original = self._preprocess_image(src_image)
+
         input_dict = {"image0": src_tensor, "image1": dst_tensor}
         for k in input_dict.keys():
             input_dict[k] = input_dict[k].to(self.device)
+
         with torch.inference_mode():
             correspondences = self.image_matcher(input_dict)
+
         for k in correspondences.keys():
             correspondences[k] = correspondences[k].cpu().numpy()
+
         correspondences = self._rescale_correspondences(
             correspondences, src_scaled2original, dst_scaled2original
         )
+
         if src_patch_corners is not None:
             correspondences["keypoints0"] = (
                 correspondences["keypoints0"] + src_patch_corners[0]
             )
+
         return correspondences
 
     def _preprocess_image(self, image):

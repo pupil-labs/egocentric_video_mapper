@@ -338,21 +338,39 @@ if __name__ == "__main__":
     action_vid_path = "/users/sof/video_examples/second_video/20240523_171941_000.mp4"
     action_timestamps = "/users/sof/video_examples/second_video/2024-05-23_16-47-35-a666ea62/action_camera_timestamps.csv"
     action_gaze_path_lg = "/users/sof/action_map_experiments/second_video_2/mapped_gaze/disk_lightglue/action_gaze_lnk.csv"
-    action_gaze_path_loftr = "/users/sof/action_map_experiments/new_mapper/second_video_2/mapped_gaze/loftr/action_gaze_lk.csv"
+    action_gaze_path_loftr_old = "/users/sof/action_map_experiments/new_mapper/second_video_oldmapper/mapped_gaze/loftr/action_gaze_lk.csv"
+    action_gaze_path_loftr_new = "/users/sof/action_map_experiments/new_mapper/second_video_rules/mapped_gaze/loftr/action_gaze_lk.csv"
 
-    # save_video(action_video_path=action_vid_path,
-    #     action_worldtimestamps_path=action_timestamps,
-    #     action_gaze_paths_dict={'LOFTR':action_gaze_path_loftr, 'LG+DISK':action_gaze_path_lg},
-    #     neon_video_path=neon_vid_path,
-    #     neon_worldtimestamps_path=neon_timestamps,
-    #     neon_gaze_path=neon_gaze_path,
-    #     save_video_path='/users/sof/action_map_experiments/second_video_2/video_render/Neon_ActionCam_both_lk.avi')
+    # neon_vid_path = "/users/sof/gaze_mapping/raw_videos/Neon/Raw_Data/2024-02-16_wearingNeon/2024-02-16_15-58-13-6310bec3/cc00c32d_0.0-146.071.mp4"
+    # neon_timestamps = "/users/sof/gaze_mapping/raw_videos/Neon/Raw_Data/2024-02-16_wearingNeon/2024-02-16_15-58-13-6310bec3/world_timestamps.csv"
+    # neon_gaze_path = "/users/sof/gaze_mapping/raw_videos/Neon/Raw_Data/2024-02-16_wearingNeon/2024-02-16_15-58-13-6310bec3/gaze.csv"
 
-    view_video(
+    # action_vid_path = "/users/sof/gaze_mapping/raw_videos/InstaVid/wearingNeon_2m/AVun_20240216_160246_055.mp4"
+    # action_timestamps = "/users/sof/gaze_mapping/raw_videos/Neon/Raw_Data/2024-02-16_wearingNeon/2024-02-16_15-58-13-6310bec3/action_camera_timestamps.csv"
+    # action_gaze_path_loftr_old = "/users/sof/action_map_experiments/new_mapper/wearingNeon_2m_old/mapped_gaze/loftr/action_gaze_lk.csv"
+    # action_gaze_path_loftr_new = "/users/sof/action_map_experiments/new_mapper/wearingNeon_2m_rules/mapped_gaze/loftr/action_gaze_lk.csv"
+
+    save_video(
         action_video_path=action_vid_path,
         action_worldtimestamps_path=action_timestamps,
-        action_gaze_paths_dict={"LOFTR": action_gaze_path_loftr},
+        action_gaze_paths_dict={
+            "LOFTR over gaze": action_gaze_path_loftr_old,
+            "LOFTR rule based": action_gaze_path_loftr_new,
+        },
         neon_video_path=neon_vid_path,
         neon_worldtimestamps_path=neon_timestamps,
         neon_gaze_path=neon_gaze_path,
+        save_video_path="/users/sof/action_map_experiments/new_mapper/comparison_secondvideo_lk.mp4",
     )
+
+    # view_video(
+    #     action_video_path=action_vid_path,
+    #     action_worldtimestamps_path=action_timestamps,
+    #     action_gaze_paths_dict={
+    #         "LOFTR over gaze": action_gaze_path_loftr_old,
+    #         "LOFTR rule based": action_gaze_path_loftr_new,
+    #     },
+    #     neon_video_path=neon_vid_path,
+    #     neon_worldtimestamps_path=neon_timestamps,
+    #     neon_gaze_path=neon_gaze_path,
+    # )

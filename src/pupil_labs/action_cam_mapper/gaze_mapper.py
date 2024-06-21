@@ -590,9 +590,12 @@ class RulesBasedGazeMapper(ActionCameraGazeMapper):
                 gazes_since_refresh,
                 acc_neon_opticflow,
                 acc_action_opticflow,
+                refresh_thrshld,
+                opticf_threshold,
+                gaze_change_thrshld,
             ):
                 gaze_action_camera = self._map_one_gaze(
-                    gaze_neon, neon_frame, action_frame
+                    gaze_neon, neon_frame, action_frame, gaze_ts
                 )
 
                 gazes_since_refresh = 0
@@ -622,7 +625,7 @@ class RulesBasedGazeMapper(ActionCameraGazeMapper):
                 else:
                     print(f"-Mapping gaze with the new correspondences (in else)")
                     gaze_action_camera = self._map_one_gaze(
-                        gaze_neon, neon_frame, action_frame
+                        gaze_neon, neon_frame, action_frame, gaze_ts
                     )
                     gazes_since_refresh = 0
                     acc_action_opticflow = 0
@@ -711,27 +714,30 @@ class RulesBasedGazeMapper(ActionCameraGazeMapper):
         gazes_since_refresh,
         accumulated_neon_opticflow,
         accumulated_action_opticflow,
+        refresh_thrshld=100,
+        opticf_threshold=20,
+        gaze_change_thrshld=50,
     ):
         refresh_needed = False
 
-        if distance_between_gazes > 50:
+        if distance_between_gazes > gaze_change_thrshld:
             self.logger.info("Large gaze jump detected, refreshing transformation")
             refresh_needed = True
 
         if (
-            np.linalg.norm(accumulated_action_opticflow) > 20
-            or np.linalg.norm(accumulated_neon_opticflow) > 20
+            np.linalg.norm(accumulated_action_opticflow) > opticf_threshold
+            or np.linalg.norm(accumulated_neon_opticflow) > opticf_threshold
         ):
             self.logger.info("Optic flow threshold reached, refreshing transformation")
             refresh_needed = True
 
-        if gazes_since_refresh == 100:
+        if gazes_since_refresh == refresh_thrshld:
             self.logger.info("Refreshing transformation after 100 gazes")
             refresh_needed = True
 
         return refresh_needed
 
-    def _map_one_gaze(self, gaze_coords, neon_frame, action_frame):
+    def _map_one_gaze(self, gaze_coords, neon_frame, action_frame, gaze_ts):
         gaze_in_action_camera = gaze_coords
 
         if np.all(neon_frame == 100):
@@ -745,7 +751,7 @@ class RulesBasedGazeMapper(ActionCameraGazeMapper):
             self.correspondences = self.image_matcher.get_correspondences(
                 neon_frame, action_frame, patch_corners
             )
-            self.logger.info("Matcher was called")
+            self.logger.warning(f"Matcher was called at {gaze_ts}")
             filt_correspondences, new_patch_corners = self._filter_correspondences(
                 self.correspondences.copy(), gaze_coords, neon_frame.shape
             )

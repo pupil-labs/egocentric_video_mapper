@@ -296,6 +296,9 @@ class ImageMatcherFactory:
     def get_matcher(self, image_matcher, image_matcher_parameters):
         if image_matcher.upper() == "LOFTR":
             return LOFTRImageMatcher(**image_matcher_parameters)
-        # does all the ifs, switchcases and param settings specific to each matcher to instantiate the desired image matcher
         if image_matcher.upper() == "DISK_LIGHTGLUE":
             return DISK_LightGlueImageMatcher(**image_matcher_parameters)
+        if image_matcher.upper() == "EFFICIENT_LOFTR":
+            return EfficientLoFTRImageMatcher(**image_matcher_parameters)
+        else:
+            raise ValueError("Invalid image matcher")

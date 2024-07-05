@@ -30,6 +30,11 @@ class ImageMatcher(ABC):
 
 class LOFTRImageMatcher(ImageMatcher):
     def __init__(self, location, gpu_num=None):
+        """
+        Args:
+            location (str):Pretrained weights of LOFTR in ['indoor', 'outdoor'].'outdoor' is trained on MegaDepth dataset and 'indoor' on ScanNet dataset.
+            gpu_num (int, optional): The GPU device number to use, if None it uses CPU. Defaults to None.
+        """
         if gpu_num is None:
             self.device = torch.device("cpu")
         else:
@@ -96,7 +101,12 @@ class LOFTRImageMatcher(ImageMatcher):
 
 
 class DISK_LightGlueImageMatcher(ImageMatcher):
-    def __init__(self, num_features, gpu_num=None):
+    def __init__(self, num_features=None, gpu_num=None):
+        """
+        Args:
+            num_features (int): The maximum number of keypoints in DISK to detect. If None, all keypoints are returned.
+            gpu_num (int, optional): The GPU device number to use, if None it uses CPU. Defaults to None.
+        """
         if gpu_num is None:
             self.device = torch.device("cpu")
         else:
@@ -200,7 +210,12 @@ class DISK_LightGlueImageMatcher(ImageMatcher):
 
 
 class EfficientLoFTRImageMatcher(ImageMatcher):
-    def __init__(self, model_type="opt", precision="fp32", gpu_num=None):
+    def __init__(self, model_type="opt", gpu_num=None):
+        """
+        Args:
+            model_type (str, optional): Model type in ['full', 'opt']. Use 'full' for best quality, 'opt' for best efficiency. Defaults to "opt".
+            gpu_num (int, optional): The GPU device number to use, if None it uses CPU. Defaults to None.
+        """
         if gpu_num is None:
             self.device = torch.device("cpu")
         else:
@@ -213,19 +228,11 @@ class EfficientLoFTRImageMatcher(ImageMatcher):
         elif model_type == "opt":
             _default_cfg = deepcopy(opt_default_cfg)
 
-        self.precision = precision
-        if self.precision == "mp":
-            _default_cfg["mp"] = True
-        elif self.precision == "fp16":
-            _default_cfg["half"] = True
-
         self.image_matcher = eLoFTR(config=_default_cfg)
         self.image_matcher.load_state_dict(
             torch.load("./efficient_loftr/weights/eloftr_outdoor.ckpt")["state_dict"]
         )
         self.image_matcher = reparameter(self.image_matcher)
-        if precision == "fp16":
-            self.image_matcher = self.image_matcher.half()
         self.image_matcher = self.image_matcher.eval().to(self.device)
 
     def get_correspondences(
@@ -249,11 +256,7 @@ class EfficientLoFTRImageMatcher(ImageMatcher):
             batch[k] = batch[k].to(self.device)
 
         with torch.inference_mode():
-            if self.precision == "mp":
-                with torch.autocast(enabled=True, device_type="cuda"):
-                    self.image_matcher(batch)
-            else:
-                self.image_matcher(batch)
+            self.image_matcher(batch)
 
         correspondences = {
             "keypoints0": batch["mkpts0_f"].cpu().numpy(),
@@ -284,10 +287,7 @@ class EfficientLoFTRImageMatcher(ImageMatcher):
             image.shape[1] / scaled_image.shape[1],
             image.shape[0] / scaled_image.shape[0],
         )
-        if self.precision == "fp16":
-            scaled_image = torch.from_numpy(scaled_image)[None][None].half() / 255.0
-        else:
-            scaled_image = torch.from_numpy(scaled_image)[None][None] / 255.0
+        scaled_image = torch.from_numpy(scaled_image)[None][None] / 255.0
 
         return scaled_image, ratio_scaled2image
 

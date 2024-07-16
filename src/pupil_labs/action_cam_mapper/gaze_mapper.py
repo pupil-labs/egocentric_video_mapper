@@ -519,24 +519,24 @@ class RulesBasedGazeMapper(ActionCameraGazeMapper):
     def _get_corresponding_timestamps_index(timestamps_1, timestamps_2):
         """For each timestamp in timestamps_2, finds the index of the closest timestamp in timestamps_1
         Args:
-            timestamps_1 (_type_): 1-DIM array with timestamps
-            timestamps_2 (_type_): 1-DIM array with timestamps to be compared with timestamps_1
+            timestamps_1 (ndarray): 1-DIM array with timestamps
+            timestamps_2 (ndarray): 1-DIM array with timestamps to be compared with timestamps_1
 
         Returns:
             ndarray: 1-DIM array with the indexes of the timestamps_1 that are closest to the timestamps_2. Same length as timestamps_2
         """
-        after_posiciones = np.searchsorted(timestamps_1, timestamps_2)
-        before_posiciones = after_posiciones - 1
-        before_posiciones[before_posiciones == -1] = 0
-        after_posiciones[after_posiciones == len(timestamps_1)] = len(timestamps_1) - 1
+        after_idxs = np.searchsorted(timestamps_1, timestamps_2)
+        before_idxs = after_idxs - 1
+        before_idxs[before_idxs == -1] = 0
+        after_idxs[after_idxs == len(timestamps_1)] = len(timestamps_1) - 1
 
-        after_diff = timestamps_1[after_posiciones] - timestamps_2
-        before_diff = timestamps_2 - timestamps_1[before_posiciones]
+        after_diff = timestamps_1[after_idxs] - timestamps_2
+        before_diff = timestamps_2 - timestamps_1[before_idxs]
 
         stacked_diff = np.array([after_diff, before_diff])
-        stacked_posiciones = np.array([after_posiciones, before_posiciones])
+        stacked_idxs = np.array([after_idxs, before_idxs])
         selected_indexes = np.argmin(np.abs(stacked_diff), axis=0, keepdims=True)
-        indexes = np.take_along_axis(stacked_posiciones, selected_indexes, axis=0)
+        indexes = np.take_along_axis(stacked_idxs, selected_indexes, axis=0)
         indexes.shape = -1
         return indexes
 
@@ -551,6 +551,7 @@ class RulesBasedGazeMapper(ActionCameraGazeMapper):
         acc_action_opticflow = 0
         acc_neon_opticflow = 0
         last_gaze = np.array([[0, 0]])
+
         for i, gaze_ts in enumerate(self.action_gaze["timestamp [ns]"].values):
 
             gaze_neon = self.neon_gaze.loc[
@@ -597,7 +598,7 @@ class RulesBasedGazeMapper(ActionCameraGazeMapper):
                 gaze_action_camera = self._map_one_gaze(
                     gaze_neon, neon_frame, action_frame, gaze_ts
                 )
-
+                ###### refactor here
                 gazes_since_refresh = 0
                 acc_action_opticflow = 0
                 acc_neon_opticflow = 0
@@ -669,6 +670,7 @@ class RulesBasedGazeMapper(ActionCameraGazeMapper):
         return gaze_relative_ts, neon_relative_ts, action_relative_ts
 
     def _step_through_video(self, i, video_type):
+        print(f"Step through video {video_type}(i={i})")
         relative_ts = (
             self.neon_video.timestamps[self.corresponding_neon_idx[i]]
             if video_type == "neon"
@@ -721,18 +723,25 @@ class RulesBasedGazeMapper(ActionCameraGazeMapper):
         refresh_needed = False
 
         if distance_between_gazes > gaze_change_thrshld:
-            self.logger.info("Large gaze jump detected, refreshing transformation")
+            self.logger.info(
+                f"Large gaze jump detected ({distance_between_gazes}), refreshing transformation"
+            )
             refresh_needed = True
 
-        if (
-            np.linalg.norm(accumulated_action_opticflow) > opticf_threshold
-            or np.linalg.norm(accumulated_neon_opticflow) > opticf_threshold
-        ):
-            self.logger.info("Optic flow threshold reached, refreshing transformation")
+        if np.linalg.norm(accumulated_action_opticflow) > opticf_threshold:
+            self.logger.info(
+                f"Optic flow threshold reached (action at {np.linalg.norm(accumulated_action_opticflow)}), refreshing transformation"
+            )
+            refresh_needed = True
+
+        if np.linalg.norm(accumulated_neon_opticflow) > opticf_threshold:
+            self.logger.info(
+                f"Optic flow threshold reached(neon at {np.linalg.norm(accumulated_neon_opticflow)}), refreshing transformation"
+            )
             refresh_needed = True
 
         if gazes_since_refresh == refresh_thrshld:
-            self.logger.info("Refreshing transformation after 100 gazes")
+            self.logger.info(f"Refreshing transformation after {refresh_thrshld} gazes")
             refresh_needed = True
 
         return refresh_needed

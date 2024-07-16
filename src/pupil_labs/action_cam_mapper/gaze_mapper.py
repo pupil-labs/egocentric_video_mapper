@@ -559,17 +559,16 @@ class RulesBasedGazeMapper(ActionCameraGazeMapper):
                 ["gaze x [px]", "gaze y [px]"],
             ].values.reshape(1, 2)
 
-            gaze_relative_ts, neon_relative_ts, action_relative_ts = (
-                self._obtain_relative_ts(gaze_ts, i)
+            gaze_rel_ts, neon_rel_ts, action_rel_ts = self._obtain_relative_ts(
+                gaze_ts, i
             )
             self.logger.info(f"({i}) Transforming gaze {gaze_neon} at {gaze_ts}")
-            print(f"({i}) Transforming gaze {gaze_neon} at {gaze_relative_ts}")
 
             if self._gaze_between_video_frames(gaze_ts):
                 gaze_neon = self._move_point_to_video_timestamp(
                     gaze_neon,
-                    gaze_relative_ts,
-                    neon_relative_ts,
+                    gaze_rel_ts,
+                    neon_rel_ts,
                     self.neon_opticflow,
                 )
 
@@ -586,58 +585,55 @@ class RulesBasedGazeMapper(ActionCameraGazeMapper):
                 action_frame, action_opticflow = self._step_through_video(i, "action")
                 acc_action_opticflow += action_opticflow
 
-            if i == 0 or self._check_if_refresh_needed(
-                np.linalg.norm(last_gaze - gaze_neon),
-                gazes_since_refresh,
-                acc_neon_opticflow,
-                acc_action_opticflow,
-                refresh_thrshld,
-                opticf_threshold,
-                gaze_change_thrshld,
-            ):
-                gaze_action_camera = self._map_one_gaze(
-                    gaze_neon, neon_frame, action_frame, gaze_ts
-                )
-                ###### refactor here
-                gazes_since_refresh = 0
-                acc_action_opticflow = 0
-                acc_neon_opticflow = 0
+            # check if neon frame is all gray
+            if np.all(neon_frame == 100):
+                self.logger.warning(f"Neon frame is all gray")
+                gaze_action_camera = gaze_neon.copy()
 
             else:
-                if hasattr(self, "correspondences"):
-                    self.logger.info(f"Mapping gaze with the existing correspondences")
-                    print(
-                        f"-Mapping gaze with the existing correspondences ({len(self.correspondences['keypoints0'])})"
+                # check if matcher needs to be called
+                if i == 0 or self._check_if_refresh_needed(
+                    np.linalg.norm(last_gaze - gaze_neon),
+                    gazes_since_refresh,
+                    acc_neon_opticflow,
+                    acc_action_opticflow,
+                    refresh_thrshld,
+                    opticf_threshold,
+                    gaze_change_thrshld,
+                ):
+                    patch_corners = self._get_patch_corners(
+                        self.patch_size, gaze_neon, neon_frame.shape
                     )
-
-                    filt_correspondences, new_patch_corners = (
-                        self._filter_correspondences(
-                            self.correspondences.copy(), gaze_neon, neon_frame.shape
-                        )
+                    self.correspondences = self.image_matcher.get_correspondences(
+                        neon_frame, action_frame, patch_corners
                     )
-
-                    self.logger.info(
-                        f'Number of correspondences: {len(filt_correspondences["keypoints0"])} at {abs(new_patch_corners[0,0]-new_patch_corners[2,0])} patch size'
-                    )
-
-                    gaze_action_camera = self._transform_point(
-                        filt_correspondences, gaze_neon
-                    )
-                else:
-                    print(f"-Mapping gaze with the new correspondences (in else)")
-                    gaze_action_camera = self._map_one_gaze(
-                        gaze_neon, neon_frame, action_frame, gaze_ts
-                    )
+                    self.logger.warning(f"Matcher was called at {gaze_ts}")
                     gazes_since_refresh = 0
                     acc_action_opticflow = 0
                     acc_neon_opticflow = 0
 
+                self.logger.info(
+                    f"Mapping gaze with the existing {len(self.correspondences['keypoints0'])} correspondences"
+                )
+
+                filt_correspondences, new_patch_corners = self._filter_correspondences(
+                    self.correspondences.copy(), gaze_neon, neon_frame.shape
+                )
+
+                self.logger.info(
+                    f'Number of correspondences: {len(filt_correspondences["keypoints0"])} at {abs(new_patch_corners[0,0]-new_patch_corners[2,0])} patch size'
+                )
+
+                gaze_action_camera = self._transform_point(
+                    filt_correspondences, gaze_neon
+                )
+
             if self._gaze_between_video_frames(gaze_ts):
                 gaze_action_camera = self._move_point_to_arbitrary_timestamp(
                     gaze_action_camera,
-                    action_relative_ts,
+                    action_rel_ts,
                     self.action_opticflow,
-                    gaze_relative_ts - self.action2neon_offset,
+                    gaze_rel_ts - self.action2neon_offset,
                 )
 
             self.logger.info(f"({i}) Gaze mapped to {gaze_action_camera}")
@@ -722,6 +718,10 @@ class RulesBasedGazeMapper(ActionCameraGazeMapper):
     ):
         refresh_needed = False
 
+        if not hasattr(self, "correspondences"):
+            self.logger.info("No correspondences found, refreshing transformation")
+            refresh_needed = True
+
         if distance_between_gazes > gaze_change_thrshld:
             self.logger.info(
                 f"Large gaze jump detected ({distance_between_gazes}), refreshing transformation"
@@ -745,29 +745,3 @@ class RulesBasedGazeMapper(ActionCameraGazeMapper):
             refresh_needed = True
 
         return refresh_needed
-
-    def _map_one_gaze(self, gaze_coords, neon_frame, action_frame, gaze_ts):
-        gaze_in_action_camera = gaze_coords
-
-        if np.all(neon_frame == 100):
-            self.logger.warning(f"Neon frame is all gray")
-            print(f"Neon frame is all gray . ")
-        else:
-            patch_corners = self._get_patch_corners(
-                self.patch_size, gaze_coords, neon_frame.shape
-            )
-
-            self.correspondences = self.image_matcher.get_correspondences(
-                neon_frame, action_frame, patch_corners
-            )
-            self.logger.warning(f"Matcher was called at {gaze_ts}")
-            filt_correspondences, new_patch_corners = self._filter_correspondences(
-                self.correspondences.copy(), gaze_coords, neon_frame.shape
-            )
-            self.logger.info(
-                f'Number of correspondences: {len(filt_correspondences["keypoints0"])} at {abs(new_patch_corners[0,0]-new_patch_corners[2,0])} patch size'
-            )
-            gaze_in_action_camera = self._transform_point(
-                filt_correspondences, gaze_coords
-            )
-        return gaze_in_action_camera

@@ -543,14 +543,26 @@ class RulesBasedGazeMapper(ActionCameraGazeMapper):
     def map_gaze(
         self,
         saving_path=None,
-        refresh_thrshld=100,
-        opticf_threshold=20,
-        gaze_change_thrshld=50,
+        refresh_time_thrshld=None,
+        optic_flow_thrshld=None,
+        gaze_change_thrshld=None,
     ):
+        """
+
+        Args:
+            saving_path (str, optional): Saving path for the mapped gaze, in format /path/to/action_gaze.csv, if None is given it saves the mapped gaze in the parent directory of the neon video. Defaults to None.
+            refresh_time_thrshld (int, optional): Maximum allowed time elapsed, in seconds, since the last computation of image correspondences. If set to None this threshold is not enforced. Defaults to None.
+            opticf_threshold (int, optional): Maximum allowed cummulative optic flow, in pixels, since the last computation of image correspondences. If set to None this threshold is not enforced Defaults to None.
+            gaze_change_thrshld (int, optional): Maximum allowed neon gaze change, in  pixels, since the last computation of image correspondences. If set to None this threshold is not enforced. Defaults to None.
+        """
+        refresh_time_thrshld = (
+            refresh_time_thrshld * 200 if refresh_time_thrshld is not None else None
+        )
+
         gazes_since_refresh = 0
         acc_action_opticflow = 0
         acc_neon_opticflow = 0
-        last_gaze = np.array([[0, 0]])
+        last_gaze = self.neon_gaze.iloc[0][["gaze x [px]", "gaze y [px]"]].values
 
         for i, gaze_ts in enumerate(self.action_gaze["timestamp [ns]"].values):
 
@@ -597,8 +609,8 @@ class RulesBasedGazeMapper(ActionCameraGazeMapper):
                     gazes_since_refresh,
                     acc_neon_opticflow,
                     acc_action_opticflow,
-                    refresh_thrshld,
-                    opticf_threshold,
+                    refresh_time_thrshld,
+                    optic_flow_thrshld,
                     gaze_change_thrshld,
                 ):
                     patch_corners = self._get_patch_corners(
@@ -607,21 +619,20 @@ class RulesBasedGazeMapper(ActionCameraGazeMapper):
                     self.correspondences = self.image_matcher.get_correspondences(
                         neon_frame, action_frame, patch_corners
                     )
-                    self.logger.warning(f"Matcher was called at {gaze_ts}")
+                    self.logger.warning(
+                        f"Matcher was called at {gaze_ts} ({len(self.correspondences['keypoints0'])} correspondences)"
+                    )
                     gazes_since_refresh = 0
                     acc_action_opticflow = 0
                     acc_neon_opticflow = 0
-
-                self.logger.info(
-                    f"Mapping gaze with the existing {len(self.correspondences['keypoints0'])} correspondences"
-                )
+                    last_gaze = gaze_neon.copy()
 
                 filt_correspondences, new_patch_corners = self._filter_correspondences(
                     self.correspondences.copy(), gaze_neon, neon_frame.shape
                 )
 
                 self.logger.info(
-                    f'Number of correspondences: {len(filt_correspondences["keypoints0"])} at {abs(new_patch_corners[0,0]-new_patch_corners[2,0])} patch size'
+                    f'Using {len(filt_correspondences["keypoints0"])} correspondences at {abs(new_patch_corners[0,0]-new_patch_corners[2,0])} patch size'
                 )
 
                 gaze_action_camera = self._transform_point(
@@ -637,14 +648,12 @@ class RulesBasedGazeMapper(ActionCameraGazeMapper):
                 )
 
             self.logger.info(f"({i}) Gaze mapped to {gaze_action_camera}")
-            print(f"({i}) Gaze mapped to {gaze_action_camera}")
             self.action_gaze.loc[
                 self.action_gaze["timestamp [ns]"] == gaze_ts,
                 ["gaze x [px]", "gaze y [px]"],
             ] = gaze_action_camera
 
             gazes_since_refresh += 1
-            last_gaze = gaze_neon
 
         self.action_gaze.to_csv(
             (
@@ -666,7 +675,9 @@ class RulesBasedGazeMapper(ActionCameraGazeMapper):
         return gaze_relative_ts, neon_relative_ts, action_relative_ts
 
     def _step_through_video(self, i, video_type):
-        print(f"Step through video {video_type}(i={i})")
+        print(
+            f"{i} Step through video {video_type}(neon={self.corresponding_neon_idx[i]}, action={self.corresponding_action_idx[i]})"
+        )
         relative_ts = (
             self.neon_video.timestamps[self.corresponding_neon_idx[i]]
             if video_type == "neon"
@@ -712,36 +723,63 @@ class RulesBasedGazeMapper(ActionCameraGazeMapper):
         gazes_since_refresh,
         accumulated_neon_opticflow,
         accumulated_action_opticflow,
-        refresh_thrshld=100,
-        opticf_threshold=20,
-        gaze_change_thrshld=50,
+        refresh_thrshld=None,
+        opticf_threshold=None,
+        gaze_change_thrshld=None,
     ):
         refresh_needed = False
 
         if not hasattr(self, "correspondences"):
             self.logger.info("No correspondences found, refreshing transformation")
+            print("No correspondences found, refreshing transformation")
             refresh_needed = True
 
-        if distance_between_gazes > gaze_change_thrshld:
+        if (
+            gaze_change_thrshld is not None
+            and distance_between_gazes > gaze_change_thrshld
+        ):
             self.logger.info(
+                f"Large gaze jump detected ({distance_between_gazes}), refreshing transformation"
+            )
+            print(
                 f"Large gaze jump detected ({distance_between_gazes}), refreshing transformation"
             )
             refresh_needed = True
 
-        if np.linalg.norm(accumulated_action_opticflow) > opticf_threshold:
+        if (
+            opticf_threshold is not None
+            and np.linalg.norm(accumulated_action_opticflow) > opticf_threshold
+        ):
             self.logger.info(
+                f"Optic flow threshold reached (action at {np.linalg.norm(accumulated_action_opticflow)}), refreshing transformation"
+            )
+            print(
                 f"Optic flow threshold reached (action at {np.linalg.norm(accumulated_action_opticflow)}), refreshing transformation"
             )
             refresh_needed = True
 
-        if np.linalg.norm(accumulated_neon_opticflow) > opticf_threshold:
+        if (
+            opticf_threshold is not None
+            and np.linalg.norm(accumulated_neon_opticflow) > opticf_threshold
+        ):
             self.logger.info(
+                f"Optic flow threshold reached(neon at {np.linalg.norm(accumulated_neon_opticflow)}), refreshing transformation"
+            )
+            print(
                 f"Optic flow threshold reached(neon at {np.linalg.norm(accumulated_neon_opticflow)}), refreshing transformation"
             )
             refresh_needed = True
 
-        if gazes_since_refresh == refresh_thrshld:
+        if refresh_thrshld is not None and gazes_since_refresh == refresh_thrshld:
+            print(f"Refreshing transformation after {refresh_thrshld} gazes")
             self.logger.info(f"Refreshing transformation after {refresh_thrshld} gazes")
+            refresh_needed = True
+
+        if (
+            refresh_thrshld is None
+            and gaze_change_thrshld is None
+            and opticf_threshold is None
+        ):
             refresh_needed = True
 
         return refresh_needed

@@ -233,11 +233,15 @@ class ActionCameraGazeMapper:
                 new_patch_size, point_to_be_transformed, image_shape
             )
             kept_kp_index = []
+
+            x_lower_bound = min(new_patch_corners[:, 0])
+            x_upper_bound = max(new_patch_corners[:, 0])
+            y_lower_bound = min(new_patch_corners[:, 1])
+            y_upper_bound = max(new_patch_corners[:, 1])
+
             for i, kp in enumerate(correspondences["keypoints0"]):
-                if min(new_patch_corners[:, 0]) < kp[0] < max(
-                    new_patch_corners[:, 0]
-                ) and min(new_patch_corners[:, 1]) < kp[1] < max(
-                    new_patch_corners[:, 1]
+                if (x_lower_bound < kp[0] < x_upper_bound) and (
+                    y_lower_bound < kp[1] < y_upper_bound
                 ):
                     kept_kp_index.append(i)
 

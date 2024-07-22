@@ -202,6 +202,7 @@ class ActionCameraGazeMapper:
 
     def _estimate_transformation(self, correspondences):
         # returns callable
+
         neon_pts = np.float32(correspondences["keypoints0"]).reshape(-1, 1, 2)
         action_pts = np.float32(correspondences["keypoints1"]).reshape(-1, 1, 2)
         prev_transformation = self.transformation
@@ -223,43 +224,30 @@ class ActionCameraGazeMapper:
     def _filter_correspondences(
         self, correspondences, point_to_be_transformed, image_shape
     ):
-        prev_patch_size = self.patch_size
-        prev_patch_corners = self._get_patch_corners(
-            prev_patch_size, point_to_be_transformed, image_shape
+        if len(correspondences["keypoints0"]) < 100:
+            self.logger.warning(
+                f"Less than 100 correspondences in original patch (size {self.patch_size}), returning {len(correspondences['keypoints0'])} correspondences"
+            )
+            return correspondences, self._get_patch_corners(
+                self.patch_size, point_to_be_transformed, image_shape
+            )
+
+        distance_to_point = np.linalg.norm(
+            point_to_be_transformed - correspondences["keypoints0"], axis=1
         )
-        while True:
-            new_patch_size = prev_patch_size - 100
-            new_patch_corners = self._get_patch_corners(
-                new_patch_size, point_to_be_transformed, image_shape
-            )
-            kept_kp_index = []
 
-            x_lower_bound = min(new_patch_corners[:, 0])
-            x_upper_bound = max(new_patch_corners[:, 0])
-            y_lower_bound = min(new_patch_corners[:, 1])
-            y_upper_bound = max(new_patch_corners[:, 1])
-
-            for i, kp in enumerate(correspondences["keypoints0"]):
-                if (x_lower_bound < kp[0] < x_upper_bound) and (
-                    y_lower_bound < kp[1] < y_upper_bound
-                ):
-                    kept_kp_index.append(i)
-
-            if len(kept_kp_index) < 100:
-                return correspondences, prev_patch_corners
-
-            for k in correspondences.keys():
-                correspondences[k] = correspondences[k][kept_kp_index]
-            prev_patch_corners = new_patch_corners
-            prev_patch_size = new_patch_size
-            self.logger.debug(
-                f"Patch size reduced to {new_patch_size} with {len(kept_kp_index)} correspondences"
-            )
-            if new_patch_size == 100:
-                self.logger.warning(
-                    f"Minimum patch size reached, returning {len(kept_kp_index)} correspondences found in patch of size 100"
+        diferent_radii = range(50, self.patch_size + 50, 50)
+        for radius in diferent_radii:
+            kept_idx = distance_to_point < radius
+            if np.count_nonzero(kept_idx) > 100:
+                self.logger.info(
+                    f"Patch size reduced to {radius*2} with {len(kept_idx)} correspondences"
                 )
-                return correspondences, prev_patch_corners
+                for name in correspondences.keys():
+                    correspondences[name] = correspondences[name][kept_idx]
+                return correspondences, self._get_patch_corners(
+                    radius * 2, point_to_be_transformed, image_shape
+                )
 
     def _move_point_to_video_timestamp(
         self, point_coordinates, point_timestamp, opticflow_timestamp, opticflow
@@ -518,6 +506,8 @@ class RulesBasedGazeMapper(ActionCameraGazeMapper):
             self.neon_ts["timestamp [ns]"].values,
             self.action_gaze["timestamp [ns]"].values,
         )
+        self.neon_fov = np.array([132, 81])
+        self.action_fov = np.array([145, 76])
 
     @staticmethod
     def _get_corresponding_timestamps_index(timestamps_1, timestamps_2):
@@ -633,10 +623,6 @@ class RulesBasedGazeMapper(ActionCameraGazeMapper):
 
                 filt_correspondences, new_patch_corners = self._filter_correspondences(
                     self.correspondences.copy(), gaze_neon, neon_frame.shape
-                )
-
-                self.logger.info(
-                    f'Using {len(filt_correspondences["keypoints0"])} correspondences at {abs(new_patch_corners[0,0]-new_patch_corners[2,0])} patch size'
                 )
 
                 gaze_action_camera = self._transform_point(

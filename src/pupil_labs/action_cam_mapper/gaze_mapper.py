@@ -583,13 +583,21 @@ class RulesBasedGazeMapper(ActionCameraGazeMapper):
                 self.corresponding_neon_idx[i] != self.corresponding_neon_idx[i - 1]
             ):
                 neon_frame, neon_opticflow = self._step_through_video(i, "neon")
-                acc_neon_opticflow += neon_opticflow
+                acc_neon_opticflow += self._angle_difference_rough(
+                    neon_opticflow,
+                    self.neon_fov,
+                    np.array([self.neon_video.height, self.neon_video.width]),
+                )
 
             if i == 0 or (
                 self.corresponding_action_idx[i] != self.corresponding_action_idx[i - 1]
             ):
                 action_frame, action_opticflow = self._step_through_video(i, "action")
-                acc_action_opticflow += action_opticflow
+                acc_action_opticflow += self._angle_difference_rough(
+                    action_opticflow,
+                    self.action_fov,
+                    np.array([self.action_video.height, self.action_video.width]),
+                )
 
             # check if neon frame is all gray
             if np.all(neon_frame == 100):
@@ -599,7 +607,11 @@ class RulesBasedGazeMapper(ActionCameraGazeMapper):
             else:
                 # check if matcher needs to be called
                 if i == 0 or self._check_if_refresh_needed(
-                    np.linalg.norm(last_gaze - gaze_neon),
+                    self._angle_difference_rough(
+                        last_gaze - gaze_neon,
+                        self.neon_fov,
+                        np.array([self.neon_video.height, self.neon_video.width]),
+                    ),
                     gazes_since_refresh,
                     acc_neon_opticflow,
                     acc_action_opticflow,
@@ -689,7 +701,7 @@ class RulesBasedGazeMapper(ActionCameraGazeMapper):
                 ].values
             )
         else:
-            opticflow = 0
+            opticflow = np.array([0, 0])
 
         if hasattr(self, "correspondences"):
             selected_kp = "keypoints0" if video_type == "neon" else "keypoints1"
@@ -709,7 +721,7 @@ class RulesBasedGazeMapper(ActionCameraGazeMapper):
 
     def _check_if_refresh_needed(
         self,
-        distance_between_gazes,
+        angle_between_gazes,
         gazes_since_refresh,
         accumulated_neon_opticflow,
         accumulated_action_opticflow,
@@ -726,19 +738,19 @@ class RulesBasedGazeMapper(ActionCameraGazeMapper):
 
         if (
             gaze_change_thrshld is not None
-            and distance_between_gazes > gaze_change_thrshld
+            and angle_between_gazes > gaze_change_thrshld
         ):
             self.logger.info(
-                f"Large gaze jump detected ({distance_between_gazes}), refreshing transformation"
+                f"Large gaze jump detected ({angle_between_gazes}deg), refreshing transformation"
             )
             print(
-                f"Large gaze jump detected ({distance_between_gazes}), refreshing transformation"
+                f"Large gaze jump detected ({angle_between_gazes}deg), refreshing transformation"
             )
             refresh_needed = True
 
         if (
             opticf_threshold is not None
-            and np.linalg.norm(accumulated_action_opticflow) > opticf_threshold
+            and accumulated_action_opticflow > opticf_threshold
         ):
             self.logger.info(
                 f"Optic flow threshold reached (action at {np.linalg.norm(accumulated_action_opticflow)}), refreshing transformation"
@@ -750,7 +762,7 @@ class RulesBasedGazeMapper(ActionCameraGazeMapper):
 
         if (
             opticf_threshold is not None
-            and np.linalg.norm(accumulated_neon_opticflow) > opticf_threshold
+            and accumulated_neon_opticflow > opticf_threshold
         ):
             self.logger.info(
                 f"Optic flow threshold reached(neon at {np.linalg.norm(accumulated_neon_opticflow)}), refreshing transformation"
@@ -773,3 +785,25 @@ class RulesBasedGazeMapper(ActionCameraGazeMapper):
             refresh_needed = True
 
         return refresh_needed
+
+    @staticmethod
+    def _angle_difference_rough(pixel_displacement, fov, image_resolution):
+        """Calculates the angle difference between two points in the same plane [rough calculation]
+
+        Args:
+            point_a (ndarray): Point in pixel space of the image
+            point_b (ndarray): Point in pixel space of the image
+            fov (ndarray): Field of view of the camera (can be 2D or 1D). If 1D, it is assumed that the camera has the same field of view in both axes. If 2D, it is assumed that [fov_x, fov_y]
+        """
+        if len(fov) == 1:
+            fov = np.array([fov, fov])
+        fov = fov.reshape(-1)
+        image_resolution = image_resolution.reshape(-1)
+
+        angle_per_pixel_x = fov[0] / image_resolution[1]
+        angle_per_pixel_y = fov[1] / image_resolution[0]
+
+        angle_difference = pixel_displacement.reshape(-1) * np.array(
+            [angle_per_pixel_x, angle_per_pixel_y]
+        )
+        return np.linalg.norm(angle_difference)

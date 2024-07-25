@@ -791,9 +791,9 @@ class RulesBasedGazeMapper(ActionCameraGazeMapper):
         """Calculates the angle difference between two points in the same plane [rough calculation]
 
         Args:
-            point_a (ndarray): Point in pixel space of the image
-            point_b (ndarray): Point in pixel space of the image
+            pixel_displacement (ndarray): Displacement in x and y in pixels
             fov (ndarray): Field of view of the camera (can be 2D or 1D). If 1D, it is assumed that the camera has the same field of view in both axes. If 2D, it is assumed that [fov_x, fov_y]
+            image_resolution (ndarray): Resolution of the image (can be 2D or 1D). If 1D, it is assumed that the image has the same resolution in both axes. If 2D, it is assumed that [height, width]
         """
         if len(fov) == 1:
             fov = np.array([fov, fov])
@@ -807,3 +807,15 @@ class RulesBasedGazeMapper(ActionCameraGazeMapper):
             [angle_per_pixel_x, angle_per_pixel_y]
         )
         return np.linalg.norm(angle_difference)
+
+    @staticmethod
+    def _angular_difference(point_a, point_b, camera_matrix, distortion_coefficients):
+        """Using camera instrinsics, calculates the angular difference between two points in the same plane"""
+        point_a = cv.undistortPoints(point_a, camera_matrix, distortion_coefficients)
+        point_b = cv.undistortPoints(point_b, camera_matrix, distortion_coefficients)
+        point_a = np.concatenate([point_a.reshape(-1), np.ones(1)])
+        point_b = np.concatenate([point_b.reshape(-1), np.ones(1)])
+        angular_difference = np.arccos(
+            point_a.dot(point_b) / (np.linalg.norm(point_a) * np.linalg.norm(point_b))
+        )
+        return np.rad2deg(angular_difference)

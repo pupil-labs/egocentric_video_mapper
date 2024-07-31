@@ -248,6 +248,12 @@ class ActionCameraGazeMapper:
                 return correspondences, self._get_patch_corners(
                     radius * 2, point_to_be_transformed, image_shape
                 )
+        self.logger.warning(
+            "No radius found with more than 100 correspondences. Returning original correspondences."
+        )
+        return correspondences, self._get_patch_corners(
+            self.patch_size, point_to_be_transformed, image_shape
+        )
 
     def _move_point_to_video_timestamp(
         self, point_coordinates, point_timestamp, opticflow_timestamp, opticflow

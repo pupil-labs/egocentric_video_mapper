@@ -13,6 +13,7 @@ from gaze_mapper import (
 )
 from video_renderer import save_video
 from pathlib import Path
+import cProfile as profile
 
 
 def get_gaze_per_frame(gaze_file, video_timestamps):
@@ -86,7 +87,6 @@ def align_videos(action_result, neon_result, action_vid_path, neon_timestamps):
 
 
 def main_mapper(
-    mapper_choice,
     action_vid_path,
     neon_vid_path,
     neon_timestamps,
@@ -103,45 +103,18 @@ def main_mapper(
 
     param = matcher["parameters"]
     print(f'Using {matcher["choice"]} with parameters: {param}')
-    if mapper_choice == 1:
-        mapper = ActionCameraGazeMapper(
-            neon_gaze_csv=neon_gaze_csv,
-            neon_video_dir=neon_vid_path,
-            action_video_dir=action_vid_path,
-            neon_timestamps=neon_timestamps,
-            action_timestamps=action_timestamps,
-            image_matcher=matcher["choice"],
-            image_matcher_parameters=param,
-            neon_opticflow_csv=neon_opticflow_csv,
-            action_opticflow_csv=action_opticflow_csv,
-            patch_size=1000,
-        )
-    elif mapper_choice == 2:
-        mapper = ActionCameraGazeMapper2(
-            neon_gaze_csv=neon_gaze_csv,
-            neon_video_dir=neon_vid_path,
-            action_video_dir=action_vid_path,
-            neon_timestamps=neon_timestamps,
-            action_timestamps=action_timestamps,
-            image_matcher=matcher["choice"],
-            image_matcher_parameters=param,
-            neon_opticflow_csv=neon_opticflow_csv,
-            action_opticflow_csv=action_opticflow_csv,
-            patch_size=1000,
-        )
-    else:
-        mapper = RulesBasedGazeMapper(
-            neon_gaze_csv=neon_gaze_csv,
-            neon_video_dir=neon_vid_path,
-            action_video_dir=action_vid_path,
-            neon_timestamps=neon_timestamps,
-            action_timestamps=action_timestamps,
-            image_matcher=matcher["choice"],
-            image_matcher_parameters=param,
-            neon_opticflow_csv=neon_opticflow_csv,
-            action_opticflow_csv=action_opticflow_csv,
-            patch_size=1000,
-        )
+    mapper = RulesBasedGazeMapper(
+        neon_gaze_csv=neon_gaze_csv,
+        neon_video_dir=neon_vid_path,
+        action_video_dir=action_vid_path,
+        neon_timestamps=neon_timestamps,
+        action_timestamps=action_timestamps,
+        image_matcher=matcher["choice"],
+        image_matcher_parameters=param,
+        neon_opticflow_csv=neon_opticflow_csv,
+        action_opticflow_csv=action_opticflow_csv,
+        patch_size=1000,
+    )
 
     gaze_csv_path = Path(output_dir, f"action_gaze_{optic_flow_choice}.csv")
     mapper.map_gaze(saving_path=gaze_csv_path)
@@ -154,7 +127,6 @@ def main(
     output_dir,
     image_matcher,
     optic_flow_choice="lk",
-    mapper_choice=1,
     render_video=False,
 ):
 
@@ -204,10 +176,8 @@ def main(
     if not Path(action_timestamps).exists():
         logger.error(f"{action_timestamps} not created!")
         raise FileNotFoundError(f"{action_timestamps} not created!")
-
     # Step 3: Map gaze
     action_gaze_csv = main_mapper(
-        mapper_choice=mapper_choice,
         action_vid_path=action_vid_path,
         neon_vid_path=neon_vid_path,
         neon_timestamps=neon_timestamps,
@@ -239,32 +209,53 @@ def main(
         )
 
 
+def profiling_map(
+    action_vid_path,
+    neon_timeseries_dir,
+    output_dir,
+    image_matcher,
+    optic_flow_choice="lk",
+    render_video=False,
+):
+
+    profile_stats_path = str(Path(output_dir, "profile_stats"))
+    profile.runctx(
+        "main(action_vid_path=action_vid_path,neon_timeseries_dir=neon_timeseries_dir,output_dir=output_dir,image_matcher=image_matcher, optic_flow_choice=optic_flow_choice,render_video=render_video)",
+        globals(),
+        locals(),
+        profile_stats_path,
+    )
+
+
 if __name__ == "__main__":
-    action_vid_path = "/users/sof/gaze_mapping/raw_videos/InstaVid/wearingNeon_2m/AVun_20240216_160246_055.mp4"
-    neon_timeseries_path = "/users/sof/gaze_mapping/raw_videos/Neon/Raw_Data/2024-02-16_wearingNeon/2024-02-16_15-58-13-6310bec3/"
-
+    action_vid_path = "/users/sof/mini_dataset/office1/AVun_20240216_160246_055.mp4"
     neon_timeseries_path = (
-        "/users/sof/video_examples/second_video/2024-05-23_16-47-35-a666ea62/"
+        "/users/sof/mini_dataset/office1/2024-02-16_15-58-13-6310bec3"
     )
-    action_vid_path = "/users/sof/video_examples/second_video/20240523_171941_000.mp4"
 
-    output_dir = (
-        "/users/sof/action_map_experiments/"  # parent directory for all outputs
-    )
-    name = Path(action_vid_path).parent.name
+    output_dir = "/users/sof/action_map_experiments/minidataset_rendering"  # parent directory for all outputs
+    name = Path(neon_timeseries_path).parent.name
     output_dir = Path(output_dir, name)
 
     param_lg = {"num_features": 2048, "gpu_num": 0}
     param_loftr = {"location": "indoor", "gpu_num": 0}
+    param_eloftr = {"model_type": "opt", "gpu_num": 0}
     image_matcher_loftr = {"choice": "loftr", "parameters": param_loftr}
     image_matcher_lg = {"choice": "disk_lightglue", "parameters": param_lg}
-
-    main(
+    image_matcher_eloftr = {"choice": "efficient_loftr", "parameters": param_eloftr}
+    profiling_map(
         action_vid_path=action_vid_path,
         neon_timeseries_dir=neon_timeseries_path,
         output_dir=output_dir,
-        image_matcher=image_matcher_loftr,
+        image_matcher=image_matcher_eloftr,
         optic_flow_choice="lk",
-        mapper_choice=1,
-        render_video=False,
+        render_video=True,
     )
+    # main(
+    #     action_vid_path=action_vid_path,
+    #     neon_timeseries_dir=neon_timeseries_path,
+    #     output_dir=output_dir,
+    #     image_matcher=image_matcher_eloftr,
+    #     optic_flow_choice="lk",
+    #     render_video=False,
+    # )

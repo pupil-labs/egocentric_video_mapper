@@ -11,7 +11,7 @@ from gaze_mapper import (
     ActionCameraGazeMapper2,
     RulesBasedGazeMapper,
 )
-from video_renderer import save_video
+from video_renderer import save_comparison_video
 from pathlib import Path
 import cProfile as profile
 
@@ -198,7 +198,7 @@ def main(
             f"video_render/Neon_Action_{image_matcher['choice']}_{optic_flow_choice}.mp4",
         )
         Path(video_path).parent.mkdir(parents=True, exist_ok=True)
-        save_video(
+        save_comparison_video(
             action_video_path=action_vid_path,
             action_worldtimestamps_path=action_timestamps,
             action_gaze_paths_dict={image_matcher["choice"].upper(): action_gaze_csv},

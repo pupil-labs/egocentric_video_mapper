@@ -91,12 +91,15 @@ class VideoHandler:
         return previous_timestamp, next_timestamp
 
 
-def write_action_timestamp_csv(neon_timestamps_path, aligned_relative_action_ts):
+def write_action_timestamp_csv(
+    neon_timestamps_path, aligned_relative_action_ts, saving_path=None
+):
     """Function that creates a timestamp csv file for the action camera recording in the same format as the world_timestamps.csv. The csv file is saved in the same directory as the world_timestamps.csv of the given Neon recording.
 
     Args:
         neon_timestamps_path (str): Path to the world_timestamps.csv of the Neon recording
         aligned_relative_action_ts (ndarray): Timestamps of the action camera recording, obtained from the metadata of the video file. This function assumes that the timestamps are already aligned with the relative Neon recording timestamps.
+        saving_path (str, optional): Path to save the action camera timestamps csv file. If None, the file is saved in the same directory as the world_timestamps.csv. Defaults to None.
     """
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.INFO)
@@ -167,7 +170,9 @@ def write_action_timestamp_csv(neon_timestamps_path, aligned_relative_action_ts)
         0
     ]
 
-    saving_path = Path(neon_timestamps_path).parent
+    saving_path = (
+        Path(neon_timestamps_path).parent if saving_path is None else Path(saving_path)
+    )
     action_timestamps_df.to_csv(
         Path(saving_path, "action_camera_timestamps.csv"), index=False
     )

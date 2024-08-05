@@ -337,5 +337,8 @@ $RECYCLE.BIN/
 
 # Windows shortcuts
 *.lnk
-
+# Weigths
+*.ckpt
+# notebooks
+notebooks/
 # End of https://www.toptal.com/developers/gitignore/api/python,visualstudiocode,macos,windows,linux,pycharm

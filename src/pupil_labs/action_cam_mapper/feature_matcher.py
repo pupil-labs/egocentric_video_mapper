@@ -32,6 +32,7 @@ class ImageMatcher(ABC):
 class LOFTRImageMatcher(ImageMatcher):
     def __init__(self, location, gpu_num=None):
         """
+        This class is a wrapper for the LOFTR model from Kornia library. It is used to find correspondences between two images. To read about the model, please refer to https://zju3dv.github.io/loftr/
         Args:
             location (str):Pretrained weights of LOFTR in ['indoor', 'outdoor'].'outdoor' is trained on MegaDepth dataset and 'indoor' on ScanNet dataset.
             gpu_num (int, optional): The GPU device number to use, if None it uses CPU. Defaults to None.
@@ -104,6 +105,7 @@ class LOFTRImageMatcher(ImageMatcher):
 class DISK_LightGlueImageMatcher(ImageMatcher):
     def __init__(self, num_features=None, gpu_num=None):
         """
+        This class is a wrapper for the LightGlue algorithm with DISK features from Kornia library. It is used to find correspondences between two images. To read about both algorithms, please refer to DISK: Learning local features with policy gradient (https://github.com/cvlab-epfl/disk) and to LightGlue: Local Feature Matching at Light Speed (https://github.com/cvg/LightGlue?tab=readme-ov-file)
         Args:
             num_features (int): The maximum number of keypoints in DISK to detect. If None, all keypoints are returned.
             gpu_num (int, optional): The GPU device number to use, if None it uses CPU. Defaults to None.
@@ -213,6 +215,7 @@ class DISK_LightGlueImageMatcher(ImageMatcher):
 class EfficientLoFTRImageMatcher(ImageMatcher):
     def __init__(self, model_type="opt", gpu_num=None):
         """
+        This class is a wrapper for the Efficient LoFTR model. To read about the model, please refer to https://zju3dv.github.io/loftr/
         Args:
             model_type (str, optional): Model type in ['full', 'opt']. Use 'full' for best quality, 'opt' for best efficiency. Defaults to "opt".
             gpu_num (int, optional): The GPU device number to use, if None it uses CPU. Defaults to None.

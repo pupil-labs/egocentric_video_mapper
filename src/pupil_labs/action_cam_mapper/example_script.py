@@ -14,6 +14,7 @@ from gaze_mapper import (
 from video_renderer import save_comparison_video
 from pathlib import Path
 import cProfile as profile
+import argparse
 
 
 def get_gaze_per_frame(gaze_file, video_timestamps):
@@ -97,6 +98,11 @@ def main_mapper(
     output_dir,
     matcher,
     optic_flow_choice,
+    thresholds={
+        "refresh_time_thrshld": None,
+        "optic_flow_thrshld": None,
+        "gaze_change_thrshld": None,
+    },
 ):
     output_dir = Path(output_dir, f'mapped_gaze/{matcher["choice"]}')
     Path(output_dir).mkdir(parents=True, exist_ok=True)
@@ -117,7 +123,7 @@ def main_mapper(
     )
 
     gaze_csv_path = Path(output_dir, f"action_gaze_{optic_flow_choice}.csv")
-    mapper.map_gaze(saving_path=gaze_csv_path)
+    mapper.map_gaze(saving_path=gaze_csv_path, **thresholds)
     return gaze_csv_path
 
 
@@ -128,6 +134,11 @@ def main(
     image_matcher,
     optic_flow_choice="lk",
     render_video=False,
+    mapper_thresholds={
+        "refresh_time_thrshld": None,
+        "optic_flow_thrshld": None,
+        "gaze_change_thrshld": None,
+    },
 ):
 
     neon_vid_path = get_file(neon_timeseries_dir, file_suffix=".mp4")
@@ -188,6 +199,7 @@ def main(
         output_dir=output_dir,
         matcher=image_matcher,
         optic_flow_choice=optic_flow_choice,
+        thresholds=mapper_thresholds,
     )
     logger.info(f"Gaze mapped to action video: {action_gaze_csv}")
 
@@ -228,14 +240,50 @@ def profiling_map(
 
 
 if __name__ == "__main__":
-    action_vid_path = "/users/sof/mini_dataset/office1/AVun_20240216_160246_055.mp4"
-    neon_timeseries_path = (
-        "/users/sof/mini_dataset/office1/2024-02-16_15-58-13-6310bec3"
+
+    parser = argparse.ArgumentParser(
+        description="Running whole pipeline for action camera gaze mapping"
+    )
+    parser.add_argument("--action_vid_path", type=str, help="Action video path.")
+    parser.add_argument(
+        "--neon_timeseries_path", type=str, help="Neon timeseries path."
+    )
+    parser.add_argument("--output_dir", type=str, help="Output directory.")
+    parser.add_argument(
+        "--matcher",
+        choices=["loftr", "eloftr", "lg+disk"],
+        default="eloftr",
+        help="Image matcher to use.",
+    )
+    parser.add_argument(
+        "--optic_flow_choice", choices=["lk", "farneback"], default="lk"
+    )
+    parser.add_argument(
+        "--refresh_time_thrshld",
+        type=float,
+        help="Refresh time threshold.",
+        default=None,
+    )
+    parser.add_argument(
+        "--optic_flow_thrshld",
+        type=int,
+        help="Optic Flow threshold in deg.",
+        default=None,
+    )
+    parser.add_argument(
+        "--gaze_change_thrshld",
+        type=int,
+        help="Gaze change threshold in deg.",
+        default=None,
+    )
+    parser.add_argument(
+        "--render_video",
+        type=bool,
+        help="Render video with gaze overlay.",
+        default=False,
     )
 
-    output_dir = "/users/sof/action_map_experiments/minidataset_rendering"  # parent directory for all outputs
-    name = Path(neon_timeseries_path).parent.name
-    output_dir = Path(output_dir, name)
+    args = parser.parse_args()
 
     param_lg = {"num_features": 2048, "gpu_num": 0}
     param_loftr = {"location": "indoor", "gpu_num": 0}
@@ -243,19 +291,32 @@ if __name__ == "__main__":
     image_matcher_loftr = {"choice": "loftr", "parameters": param_loftr}
     image_matcher_lg = {"choice": "disk_lightglue", "parameters": param_lg}
     image_matcher_eloftr = {"choice": "efficient_loftr", "parameters": param_eloftr}
-    profiling_map(
-        action_vid_path=action_vid_path,
-        neon_timeseries_dir=neon_timeseries_path,
-        output_dir=output_dir,
-        image_matcher=image_matcher_eloftr,
-        optic_flow_choice="lk",
-        render_video=True,
-    )
-    # main(
-    #     action_vid_path=action_vid_path,
-    #     neon_timeseries_dir=neon_timeseries_path,
-    #     output_dir=output_dir,
-    #     image_matcher=image_matcher_eloftr,
-    #     optic_flow_choice="lk",
-    #     render_video=False,
+
+    image_matchers = {
+        "loftr": image_matcher_loftr,
+        "lg+disk": image_matcher_lg,
+        "eloftr": image_matcher_eloftr,
+    }
+
+    # profiling_map(
+    #     action_vid_path=args.action_vid_path,
+    #     neon_timeseries_dir=args.neon_timeseries_path,
+    #     output_dir=args.output_dir,
+    #     image_matcher=image_matchers[args.matcher],
+    #     optic_flow_choice=args.optic_flow_choice,
+    #     render_video=args.render_video,
+
     # )
+    main(
+        action_vid_path=args.action_vid_path,
+        neon_timeseries_dir=args.neon_timeseries_path,
+        output_dir=args.output_dir,
+        image_matcher=image_matchers[args.matcher],
+        optic_flow_choice=args.optic_flow_choice,
+        render_video=args.render_video,
+        mapper_thresholds={
+            "refresh_time_thrshld": args.refresh_time_thrshld,
+            "optic_flow_thrshld": args.optic_flow_thrshld,
+            "gaze_change_thrshld": args.gaze_change_thrshld,
+        },
+    )

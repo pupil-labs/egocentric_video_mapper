@@ -53,6 +53,8 @@ Go to the project directory:
    cd /path/to/your/directory/action_cam_mapper
    pip install -e .
 
+Download the directory with model weights for `EfficientLOFTR<https://github.com/zju3dv/EfficientLoFTR>` from the following `download link <https://drive.google.com/drive/folders/1GOw6iVqsB-f1vmG6rNmdCcgwfB4VZ7_Q>` and place it in the /efficient_loftr directory.
+
 Run it!
 ============
 To run the project, you can open 'PL-mapper.ipynb' in a Jupyter Notebook and run the cells.

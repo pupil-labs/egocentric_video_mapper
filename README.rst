@@ -53,7 +53,7 @@ Go to the project directory:
    cd /path/to/your/directory/action_cam_mapper
    pip install -e .
 
-Download the directory with model weights for `EfficientLOFTR <https://github.com/zju3dv/EfficientLoFTR/>`__ from the following `download link <https://drive.google.com/drive/folders/1GOw6iVqsB-f1vmG6rNmdCcgwfB4VZ7_Q>`__  and place it in the /efficient_loftr directory.
+Download the directory with model weights for `EfficientLOFTR <https://github.com/zju3dv/EfficientLoFTR/>`__ from the following `download link <https://drive.google.com/drive/folders/1GOw6iVqsB-f1vmG6rNmdCcgwfB4VZ7_Q>`__  and place it in the src/pupil_labs/action_cam_mapper/efficient_loftr  directory.
 
 Run it!
 ============

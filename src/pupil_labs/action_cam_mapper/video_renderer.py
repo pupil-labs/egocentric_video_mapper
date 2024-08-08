@@ -7,27 +7,21 @@ import logging
 
 
 def get_gaze_per_frame(gaze_file, video_timestamps):
-    """This function search for the gaze coordinates with the closest world timestamp to the video world timestamps and returns a list of coordinates for every frame in the video
+    """This function search for the gaze coordinates with the closest world timestamp to the video world timestamps and returns an array of coordinates for every frame in the video
 
     Args:
         gaze_file (str): Path to the gaze file associated to a video
         video_timestamps (str): Path to the world timestamps to the frames in a video
 
     Returns:
-        list_coords (list): A list containing the x,y coordinates for every entry in the video_timestamps
+        (ndarray): A numpy array containing the x,y coordinates for every entry in the video_timestamps (shape: (n_frames, 2))
     """
-
     scene_timestamps = pd.read_csv(video_timestamps)
     gaze_timestamps = pd.read_csv(gaze_file)
-    scene_ns = scene_timestamps["timestamp [ns]"].to_numpy()
-    gaze_ns = gaze_timestamps["timestamp [ns]"].to_numpy()
-    list_coords = []
-    for scene_time in scene_ns:
-        # matching scene timestamp to the smallest timestamp in gaze_ns that is greater than the scene timestamp, since gaze timestamping starts after world scene timestamping
-        gaze_indexing = np.argmin(np.abs(gaze_ns - scene_time))
-        coords = gaze_timestamps.iloc[gaze_indexing][["gaze x [px]", "gaze y [px]"]]
-        list_coords.append(coords.to_numpy())
-    return list_coords
+    coords = pd.merge_asof(
+        scene_timestamps, gaze_timestamps, on="timestamp [ns]", direction="nearest"
+    )
+    return coords[["gaze x [px]", "gaze y [px]"]].to_numpy()
 
 
 def pad_images_height(image_1, image_2):
@@ -240,7 +234,7 @@ def save_comparison_video(
     save_video_path,
     same_frame=False,
 ):
-
+    print("start")
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.INFO)
 
@@ -435,38 +429,63 @@ if __name__ == "__main__":
                 "*/action_camera_timestamps.csv"
             )
         )[0]
-        action_gaze_path = f"/users/sof/action_map_experiments/minidataset_hoover/{video_sel}/baseline/no_thresh/mapped_gaze/efficient_loftr/action_gaze_lk.csv"
+        exp = "gz"
+        if exp == "of":
+            dir_exp = "opticalflow_ts"
+        elif exp == "rf":
+            dir_exp = "refreshtime_ts"
+        else:
+            dir_exp = "gaze_ts"
+        gazes_dict = {}
 
-        action_gaze_path_0 = f"/users/sof/action_map_experiments/minidataset_hoover/{video_sel}/refreshtime_ts/0.5/mapped_gaze/efficient_loftr/action_gaze_lk.csv"
-        action_gaze_path_1 = f"/users/sof/action_map_experiments/minidataset_hoover/{video_sel}/refreshtime_ts/0.25/mapped_gaze/efficient_loftr/action_gaze_lk.csv"
-        action_gaze_path_loftr_2 = f"/users/sof/action_map_experiments/minidataset_hoover/{video_sel}/refreshtime_ts/0.05/mapped_gaze/efficient_loftr/action_gaze_lk.csv"
-        # action_gaze_path_loftr_3 = f"/users/sof/action_map_experiments/minidataset_hoover/{video_sel}/refreshtime_ts/20/mapped_gaze/efficient_loftr/action_gaze_lk.csv"
+        gazes_dict["ELOFTR baseline"] = (
+            f"/users/sof/action_map_experiments/minidataset_hoover/{video_sel}/baseline/no_thresh/mapped_gaze/efficient_loftr/action_gaze_lk.csv"
+        )
+
+        if exp == "rf":
+            gazes_dict[f"ELOFTR {exp}0.5"] = (
+                f"/users/sof/action_map_experiments/minidataset_hoover/{video_sel}/{dir_exp}/0.5/mapped_gaze/efficient_loftr/action_gaze_lk.csv"
+            )
+            gazes_dict[f"ELOFTR {exp}0.25"] = (
+                f"/users/sof/action_map_experiments/minidataset_hoover/{video_sel}/{dir_exp}/0.25/mapped_gaze/efficient_loftr/action_gaze_lk.csv"
+            )
+            gazes_dict[f"ELOFTR {exp}0.05"] = (
+                f"/users/sof/action_map_experiments/minidataset_hoover/{video_sel}/{dir_exp}/0.05/mapped_gaze/efficient_loftr/action_gaze_lk.csv"
+            )
+        else:
+            gazes_dict[f"ELOFTR {exp}1"] = (
+                f"/users/sof/action_map_experiments/minidataset_hoover/{video_sel}/{dir_exp}/1/mapped_gaze/efficient_loftr/action_gaze_lk.csv"
+            )
+            gazes_dict[f"ELOFTR {exp}5"] = (
+                f"/users/sof/action_map_experiments/minidataset_hoover/{video_sel}/{dir_exp}/5/mapped_gaze/efficient_loftr/action_gaze_lk.csv"
+            )
+            gazes_dict[f"ELOFTR {exp}10"] = (
+                f"/users/sof/action_map_experiments/minidataset_hoover/{video_sel}/{dir_exp}/10/mapped_gaze/efficient_loftr/action_gaze_lk.csv"
+            )
+            gazes_dict[f"ELOFTR {exp}20"] = (
+                f"/users/sof/action_map_experiments/minidataset_hoover/{video_sel}/{dir_exp}/20/mapped_gaze/efficient_loftr/action_gaze_lk.csv"
+            )
 
         save_comparison_video(
             action_video_path=action_vid_path,
             action_worldtimestamps_path=action_timestamps,
-            action_gaze_paths_dict={
-                "eLOFTR baseline": action_gaze_path,
-                "eLOFTR rf0.5": action_gaze_path_0,
-                "eLOFTR rf0.25": action_gaze_path_1,
-                "eLOFTR rf0.05": action_gaze_path_loftr_2,
-                # "eLOFTR of20": action_gaze_path_loftr_3,
-            },
+            action_gaze_paths_dict=gazes_dict,
             neon_video_path=neon_vid_path,
             neon_worldtimestamps_path=neon_timestamps,
             neon_gaze_path=neon_gaze_path,
-            save_video_path=f"/users/sof/action_map_experiments/minidaset_rendering/{video_sel}/Neon_Action_of.mp4",
+            save_video_path=f"/users/sof/action_map_experiments/minidaset_rendering/{video_sel}/Neon_Action_{exp}.mp4",
             same_frame=True,
         )
 
-    # view_video(
-    #     action_video_path=action_vid_path,
-    #     action_worldtimestamps_path=action_timestamps,
-    #     action_gaze_paths_dict={
-    #         "LOFTR over gaze": action_gaze_path_loftr_old,
-    #         "LOFTR rule based": action_gaze_path_loftr_new,
-    #     },
-    #     neon_video_path=neon_vid_path,
-    #     neon_worldtimestamps_path=neon_timestamps,
-    #     neon_gaze_path=neon_gaze_path,
-    # )
+        # view_video(
+        #     action_video_path=action_vid_path,
+        #     action_worldtimestamps_path=action_timestamps,
+        #     action_gaze_paths_dict={
+        #         "LOFTR over gaze": action_gaze_path,
+        #         "LOFTR rule based": action_gaze_path_0,
+        #     },
+        #     neon_video_path=neon_vid_path,
+        #     neon_worldtimestamps_path=neon_timestamps,
+        #     neon_gaze_path=neon_gaze_path,
+        # )
+        break

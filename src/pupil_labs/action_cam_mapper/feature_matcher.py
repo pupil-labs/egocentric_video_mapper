@@ -421,5 +421,7 @@ class ImageMatcherFactory:
             return DISK_LightGlueImageMatcher(**image_matcher_parameters)
         if image_matcher.upper() == "EFFICIENT_LOFTR":
             return EfficientLoFTRImageMatcher(**image_matcher_parameters)
+        if image_matcher.upper() == "DEDODE_LIGHTGLUE":
+            return DeDoDe_LightGlueImageMatcher(**image_matcher_parameters)
         else:
             raise ValueError("Invalid image matcher")

@@ -207,7 +207,119 @@ class DISK_LightGlueImageMatcher(ImageMatcher):
             image.shape[1] / scaled_image.shape[1],
             image.shape[0] / scaled_image.shape[0],
         )
-        scaled_image = self.transform(image)
+        scaled_image = self.transform(scaled_image)
+        scaled_image = torch.unsqueeze(scaled_image, dim=0)
+        return scaled_image, ratio_scaled2image
+
+
+class DeDoDe_LightGlueImageMatcher(ImageMatcher):
+    def __init__(self, num_features=10000, gpu_num=None):
+        """
+        This class is a wrapper for the LightGlue algorithm with DeDoDe features from Kornia library. It is used to find correspondences between two images. To read about both algorithms, please refer to DeDoDe: Detect, Don't Describe — Describe, Don't Detect for Local Feature Matching (https://github.com/Parskatt/DeDoDe) and to LightGlue: Local Feature Matching at Light Speed (https://github.com/cvg/LightGlue?tab=readme-ov-file)
+        Args:
+            num_features (int): The maximum number of keypoints in DeDoDe to detect. Defaults to 10000.
+            gpu_num (int, optional): The GPU device number to use, if None it uses CPU. Defaults to None.
+        """
+        if gpu_num is None:
+            self.device = torch.device("cpu")
+        else:
+            self.device = torch.device(
+                f"cuda:{gpu_num}" if torch.cuda.is_available() else "cpu"
+            )
+        self.num_features = num_features
+
+        self.feature_extractor = kornia.feature.DeDoDe.from_pretrained(
+            detector_weights="L-upright", descriptor_weights="B-upright"
+        ).to(self.device)
+        self.feature_matcher = (
+            kornia.feature.LightGlue("dedodeb").eval().to(self.device)
+        )
+
+        self.transform = transforms.Compose([transforms.ToTensor()])
+
+    def get_correspondences(
+        self, src_image, dst_image, src_patch_corners=None, dst_patch_corners=None
+    ):
+        dst_image = (
+            self._get_image_patch(dst_image, dst_patch_corners)
+            if dst_patch_corners is not None
+            else dst_image.copy()
+        )
+        dst_tensor, dst_scaled2original = self._preprocess_image(
+            dst_image.copy()
+        )  # 1xcxhxw
+
+        src_image = (
+            self._get_image_patch(src_image, src_patch_corners)
+            if src_patch_corners is not None
+            else src_image.copy()
+        )
+        src_tensor, src_scaled2original = self._preprocess_image(src_image)
+
+        with torch.inference_mode():
+            src_tensor = src_tensor.to(self.device)
+            dst_tensor = dst_tensor.to(self.device)
+
+            keypoints0, _, descriptors0 = self.feature_extractor(
+                src_tensor, self.num_features
+            )
+            keypoints1, _, descriptors1 = self.feature_extractor(
+                dst_tensor, self.num_features
+            )
+
+            image_src = {
+                "keypoints": keypoints0,
+                "descriptors": descriptors0,
+                "image_size": torch.tensor(src_tensor.shape[-2:][::-1])
+                .view(1, 2)
+                .to(self.device),
+            }
+            image_dst = {
+                "keypoints": keypoints1,
+                "descriptors": descriptors1,
+                "image_size": torch.tensor(dst_tensor.shape[-2:][::-1])
+                .view(1, 2)
+                .to(self.device),
+            }
+
+            out = self.feature_matcher({"image0": image_src, "image1": image_dst})
+
+        scores = out["scores"][0].cpu().numpy()
+        idxs = out["matches"][0].cpu().numpy()
+        kp0 = keypoints0.cpu().numpy().reshape(-1, 2)
+        kp1 = keypoints1.cpu().numpy().reshape(-1, 2)
+        correspondences = {
+            "keypoints0": kp0[idxs[:, 0]],
+            "keypoints1": kp1[idxs[:, 1]],
+            "confidence": scores,
+        }
+
+        correspondences = self._rescale_correspondences(
+            correspondences, src_scaled2original, dst_scaled2original
+        )
+
+        if src_patch_corners is not None:
+            correspondences["keypoints0"] = (
+                correspondences["keypoints0"] + src_patch_corners[0]
+            )
+
+        if dst_patch_corners is not None:
+            correspondences["keypoints1"] = (
+                correspondences["keypoints1"] + dst_patch_corners[0]
+            )
+
+        return correspondences
+
+    def _preprocess_image(self, image):
+        # image = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
+        scaled_image = cv.resize(
+            image, (round(540 * image.shape[1] / image.shape[0]), 540)
+        )
+        ratio_scaled2image = (
+            image.shape[1] / scaled_image.shape[1],
+            image.shape[0] / scaled_image.shape[0],
+        )
+        scaled_image = self.transform(scaled_image)
         scaled_image = torch.unsqueeze(scaled_image, dim=0)
         return scaled_image, ratio_scaled2image
 

@@ -141,7 +141,16 @@ class OffsetCalculator:
         plt.figure(figsize=(25, 5))
         plt.plot(dst_ts, dst, label="Destination signal")
         plt.plot(dst_ts, src, label="Source signal aligned to destination timeline")
+        plt.vlines(
+            self.time_offset,
+            min(src),
+            max(src),
+            colors="r",
+            linestyles="--",
+            label=f"Estimated time offset of source signal wrt destination signal ({self.time_offset:.2f} s)",
+        )
         plt.xlabel("Destination signal time (s)")
+        plt.legend()
         plt.show()
 
     def _obtain_overlapping_signals(self, sampling_offset, src_signal):

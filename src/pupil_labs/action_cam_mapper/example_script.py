@@ -6,14 +6,9 @@ import logging
 from optic_flow import OpticFlowCalculatorLK, OpticFlowCalculatorFarneback
 from utils import VideoHandler, write_action_timestamp_csv
 from sync_videos import OffsetCalculator
-from gaze_mapper import (
-    ActionCameraGazeMapper,
-    ActionCameraGazeMapper2,
-    RulesBasedGazeMapper,
-)
+from gaze_mapper import RulesBasedGazeMapper
 from video_renderer import save_comparison_video
 from pathlib import Path
-import cProfile as profile
 import argparse
 
 
@@ -221,24 +216,6 @@ def main(
         )
 
 
-def profiling_map(
-    action_vid_path,
-    neon_timeseries_dir,
-    output_dir,
-    image_matcher,
-    optic_flow_choice="lk",
-    render_video=False,
-):
-
-    profile_stats_path = str(Path(output_dir, "profile_stats"))
-    profile.runctx(
-        "main(action_vid_path=action_vid_path,neon_timeseries_dir=neon_timeseries_dir,output_dir=output_dir,image_matcher=image_matcher, optic_flow_choice=optic_flow_choice,render_video=render_video)",
-        globals(),
-        locals(),
-        profile_stats_path,
-    )
-
-
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(
@@ -297,16 +274,6 @@ if __name__ == "__main__":
         "lg+disk": image_matcher_lg,
         "eloftr": image_matcher_eloftr,
     }
-
-    # profiling_map(
-    #     action_vid_path=args.action_vid_path,
-    #     neon_timeseries_dir=args.neon_timeseries_path,
-    #     output_dir=args.output_dir,
-    #     image_matcher=image_matchers[args.matcher],
-    #     optic_flow_choice=args.optic_flow_choice,
-    #     render_video=args.render_video,
-
-    # )
     main(
         action_vid_path=args.action_vid_path,
         neon_timeseries_dir=args.neon_timeseries_path,

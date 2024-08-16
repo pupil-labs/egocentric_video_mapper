@@ -6,6 +6,9 @@ from utils import VideoHandler
 import logging
 
 
+FONT_CHOICE = cv.FONT_HERSHEY_SIMPLEX
+
+
 def get_gaze_per_frame(gaze_file, video_timestamps):
     """This function search for the gaze coordinates with the closest world timestamp to the video world timestamps and returns an array of coordinates for every frame in the video
 
@@ -53,6 +56,58 @@ def pad_images_height(image_1, image_2):
     return image_1, image_2
 
 
+def write_text_on_frame(
+    frame, text, position, font=FONT_CHOICE, color=(0, 0, 0), thickness=4, size=3
+):
+    """Writes text on the frame
+
+    Args:
+        frame (ndarray): Numpy array containing an image with shape (height, width, channels)
+        text (str): Text to be written on the frame
+        position (tuple): Tuple containing the x,y coordinates of the text
+        font (int, optional): Font of the text. Defaults to cv.FONT_HERSHEY_DUPLEX.
+        color (tuple, optional): Color of the text. Defaults to (0, 0, 0).
+        thickness (int, optional): Thickness of the text. Defaults to 2.
+
+    Returns:
+        (ndarray): Numpy array containing the frame with the text written
+    """
+    return cv.putText(
+        frame,
+        text,
+        position,
+        font,
+        size,
+        color,
+        thickness,
+        cv.LINE_AA,
+    )
+
+
+def draw_gaze_on_frame(
+    frame, gaze_coords, gaze_radius=20, gaze_thickness=4, gaze_color=(0, 0, 255)
+):
+    """Draws a circle on the frame at the gaze coordinates
+
+    Args:
+        frame (ndarray): Numpy array containing an image with shape (height, width, channels)
+        gaze_coords (tuple): Tuple containing the x,y coordinates of the gaze
+        gaze_radius (int, optional): Radius of the gaze circle. Defaults to 20.
+        gaze_thickness (int, optional): Thickness of the gaze circle. Defaults to 4.
+        gaze_color (tuple, optional): Color of the gaze circle. Defaults to (0, 0, 255).
+
+    Returns:
+        (ndarray): Numpy array containing the frame with the gaze circle drawn
+    """
+    return cv.circle(
+        frame,
+        np.int32(gaze_coords),
+        gaze_radius,
+        gaze_color,
+        gaze_thickness,
+    )
+
+
 def view_video(
     action_video_path,
     action_worldtimestamps_path,
@@ -98,40 +153,18 @@ def view_video(
     video_height = video_height // len(action_gaze_dict.keys())
     video_width = video_width // len(action_gaze_dict.keys())
 
-    gaze_radius = 20
-    gaze_thickness = 4
-    gaze_color = (0, 0, 255)
-
     for i, t in enumerate(action_time):
         neon_frame = neon_video.get_frame_by_timestamp(t)
         neon_frame = cv.cvtColor(neon_frame, cv.COLOR_BGR2RGB)
 
-        neon_frame_gaze = cv.circle(
-            neon_frame.copy(),
-            np.int32(neon_gaze_dict[neon_video.get_closest_timestamp(t)[0]]),
-            gaze_radius,
-            gaze_color,
-            gaze_thickness,
+        neon_frame_gaze = draw_gaze_on_frame(
+            neon_frame.copy(), neon_gaze_dict[neon_video.get_closest_timestamp(t)[0]]
         )
-        cv.putText(
+        neon_frame_gaze = write_text_on_frame(neon_frame_gaze, "Neon Scene", (50, 50))
+        neon_frame_gaze = write_text_on_frame(
             neon_frame_gaze,
-            f"Neon Scene",
-            (50, 50),
-            cv.FONT_HERSHEY_SIMPLEX,
-            1,
-            (0, 0, 0),
-            2,
-            cv.LINE_AA,
-        )
-        cv.putText(
-            neon_frame_gaze,
-            f"Time: {neon_video.get_closest_timestamp(t)[0]}",
+            f"Time: {neon_video.get_closest_timestamp(t)[0]:.3f}",
             (50, 100),
-            cv.FONT_HERSHEY_SIMPLEX,
-            1,
-            (0, 0, 0),
-            2,
-            cv.LINE_AA,
         )
 
         all_frames = neon_frame_gaze.copy()
@@ -141,32 +174,15 @@ def view_video(
 
         for matcher in action_gaze_dict.keys():
             gaze = action_gaze_dict[matcher][t]
-            action_frame_gaze = cv.circle(
+            action_frame_gaze = draw_gaze_on_frame(
                 action_frame.copy(),
-                np.int32(gaze),
-                gaze_radius,
-                gaze_color,
-                gaze_thickness,
+                gaze,
             )
-            cv.putText(
-                action_frame_gaze,
-                f"Action Cam ({matcher})",
-                (50, 50),
-                cv.FONT_HERSHEY_SIMPLEX,
-                1,
-                (0, 0, 0),
-                2,
-                cv.LINE_AA,
+            action_frame_gaze = write_text_on_frame(
+                action_frame_gaze, matcher, (50, 50)
             )
-            cv.putText(
-                action_frame_gaze,
-                f"Time: {t}",
-                (50, 100),
-                cv.FONT_HERSHEY_SIMPLEX,
-                1,
-                (0, 0, 0),
-                2,
-                cv.LINE_AA,
+            action_frame_gaze = write_text_on_frame(
+                action_frame_gaze, f"Time: {t:.3f}", (50, 100)
             )
             all_frames, action_frame_gaze = pad_images_height(
                 all_frames, action_frame_gaze
@@ -204,20 +220,11 @@ def save_gaze_video(video_path, timestamps_path, gaze_path, save_video_path):
     logger.info(f"Saving video at {save_video_path}")
     print(f"Saving video at {save_video_path}")
     logger.info(f"Video width: {video_width}, Video height: {video_height}")
-    gaze_radius = 20
-    gaze_thickness = 4
-    gaze_color = (0, 0, 255)
 
     for i, gaze in enumerate(gaze_coordinates):
         frame = video.get_frame_by_timestamp(video.timestamps[i])
         frame = cv.cvtColor(frame, cv.COLOR_RGB2BGR)
-        frame = cv.circle(
-            frame,
-            np.int32(gaze),
-            gaze_radius,
-            gaze_color,
-            gaze_thickness,
-        )
+        frame = draw_gaze_on_frame(frame, gaze)
         gaze_video.write(frame.astype(np.uint8))
     gaze_video.release()
     logger.info(f"Video saved at {save_video_path}")
@@ -234,7 +241,6 @@ def save_comparison_video(
     save_video_path,
     same_frame=False,
 ):
-    print("start")
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.INFO)
 
@@ -288,9 +294,6 @@ def save_comparison_video(
     print(f"Saving video at {save_video_path}")
     logger.info(f"Video width: {video_width}, Video height: {video_height}")
     print(f"Video width: {video_width}, Video height: {video_height}")
-    gaze_radius = 20
-    gaze_thickness = 4
-    gaze_color = (0, 0, 255)
     gaze_color_list = [
         (0, 0, 255),
         (0, 255, 0),
@@ -302,98 +305,78 @@ def save_comparison_video(
     for i, t in enumerate(action_time):
         neon_frame = neon_video.get_frame_by_timestamp(t)
         neon_frame = cv.cvtColor(neon_frame, cv.COLOR_BGR2RGB)
-
-        neon_frame_gaze = cv.circle(
-            neon_frame.copy(),
-            np.int32(neon_gaze_dict[neon_video.get_closest_timestamp(t)[0]]),
-            gaze_radius,
-            gaze_color,
-            gaze_thickness,
+        neon_frame_gaze = draw_gaze_on_frame(
+            neon_frame.copy(), neon_gaze_dict[neon_video.get_closest_timestamp(t)[0]]
         )
-        cv.putText(
+        neon_frame_gaze = write_text_on_frame(
             neon_frame_gaze,
-            f"Neon Scene",
-            (50, 100),
-            cv.FONT_HERSHEY_SIMPLEX,
-            1,
-            (0, 0, 0),
-            2,
-            cv.LINE_AA,
+            "Neon Scene Camera",
+            (50, 80),
+            thickness=5,
         )
-        cv.putText(
+        neon_frame_gaze = write_text_on_frame(
             neon_frame_gaze,
-            f"Time: {neon_video.get_closest_timestamp(t)[0]}",
-            (50, 50),
-            cv.FONT_HERSHEY_SIMPLEX,
-            1,
-            (0, 0, 0),
-            2,
-            cv.LINE_AA,
+            "Neon Scene Camera",
+            (50, 80),
+            color=(255, 255, 255),
         )
-
+        # neon_frame_gaze = write_text_on_frame(
+        #     neon_frame_gaze,
+        #     f"Time: {neon_video.get_closest_timestamp(t)[0]:.3f}s",
+        #     (50, 150),
+        #     size=2,
+        #     thickness=5,
+        # )
+        # neon_frame_gaze = write_text_on_frame(
+        #     neon_frame_gaze,
+        #     f"Time: {neon_video.get_closest_timestamp(t)[0]:.3f}s",
+        #     (50, 150),
+        #     size=2,
+        #     color=(255, 255, 255),
+        # )
         all_frames = neon_frame_gaze.copy()
 
         action_frame = action_video.get_frame_by_timestamp(action_video.timestamps[i])
         action_frame = cv.cvtColor(action_frame, cv.COLOR_RGB2BGR)
-
+        # action_frame = write_text_on_frame(
+        #     action_frame,
+        #     f"Time: {t:.3f}s",
+        #     (50, 150),
+        #     size=2,
+        #     thickness=5,
+        # )
+        # action_frame = write_text_on_frame(
+        #     action_frame,
+        #     f"Time: {t:.3f}s",
+        #     (50, 150),
+        #     size=2,
+        #     color=(255, 255, 255),
+        # )
         for i_matcher, matcher in enumerate(action_gaze_dict.keys()):
             gaze = action_gaze_dict[matcher][t]
             if same_frame:
-                action_frame = cv.circle(
-                    action_frame,
-                    np.int32(gaze),
-                    gaze_radius,
-                    gaze_color_list[i_matcher],
-                    gaze_thickness,
+                action_frame = draw_gaze_on_frame(
+                    action_frame, gaze, gaze_color=gaze_color_list[i_matcher]
                 )
-                cv.putText(
+                action_frame = write_text_on_frame(
                     action_frame,
-                    f"Time: {t}",
-                    (50, 50),
-                    cv.FONT_HERSHEY_SIMPLEX,
-                    1,
-                    (0, 0, 0),
-                    2,
-                    cv.LINE_AA,
+                    matcher,
+                    (50, 50 + 50 * i_matcher),
+                    color=gaze_color_list[i_matcher],
                 )
-                cv.putText(
-                    action_frame,
-                    f"Action Cam ({matcher})",
-                    (50, 100 + 50 * i_matcher),
-                    cv.FONT_HERSHEY_SIMPLEX,
-                    1,
-                    gaze_color_list[i_matcher],
-                    2,
-                    cv.LINE_AA,
-                )
-
             else:
-                action_frame_gaze = cv.circle(
-                    action_frame.copy(),
-                    np.int32(gaze),
-                    gaze_radius,
-                    gaze_color,
-                    gaze_thickness,
-                )
-                cv.putText(
+                action_frame_gaze = draw_gaze_on_frame(action_frame.copy(), gaze)
+                action_frame_gaze = write_text_on_frame(
                     action_frame_gaze,
-                    f"Action Cam ({matcher})",
-                    (50, 50),
-                    cv.FONT_HERSHEY_SIMPLEX,
-                    1,
-                    (0, 0, 0),
-                    2,
-                    cv.LINE_AA,
+                    matcher,
+                    (50, 80),
+                    thickness=5,
                 )
-                cv.putText(
+                action_frame_gaze = write_text_on_frame(
                     action_frame_gaze,
-                    f"Time: {t}",
-                    (50, 100),
-                    cv.FONT_HERSHEY_SIMPLEX,
-                    1,
-                    (0, 0, 0),
-                    2,
-                    cv.LINE_AA,
+                    matcher,
+                    (50, 80),
+                    color=(255, 255, 255),
                 )
                 all_frames, action_frame_gaze = pad_images_height(
                     all_frames, action_frame_gaze
@@ -404,67 +387,75 @@ def save_comparison_video(
             all_frames = np.concatenate([all_frames, action_frame], axis=1)
         all_frames = cv.resize(all_frames, (video_width, video_height))  # w,h
         video.write(all_frames.astype(np.uint8))
-
     video.release()
     logger.info(f"Video saved at {save_video_path}")
 
 
 if __name__ == "__main__":
-    videoss = ["office1", "office2", "street1", "street2", "vinyl1", "vinyl2"]
+    videoss = [
+        "street_inclined",
+        "street_very_inclined",
+        "street_slight_inclined",
+    ]
+    datset_choice = "dataset_bias"
+    exp = "gz"
+    if exp == "of":
+        dir_exp = "opticalflow_ts"
+    elif exp == "rf":
+        dir_exp = "refreshtime_ts"
+    else:
+        dir_exp = "gaze_ts"
+
     for video_sel in videoss:
 
         neon_timestamps = list(
-            Path(f"/users/sof/mini_dataset/{video_sel}").rglob("*/world_timestamps.csv")
+            Path(f"/users/sof/{datset_choice}/{video_sel}").rglob(
+                "*/world_timestamps.csv"
+            )
         )[0]
         neon_gaze_path = list(
-            Path(f"/users/sof/mini_dataset/{video_sel}").rglob("*/gaze.csv")
+            Path(f"/users/sof/{datset_choice}/{video_sel}").rglob("*/gaze.csv")
         )[0]
         neon_vid_path = list(neon_gaze_path.parent.rglob("*.mp4"))[0]
 
         action_vid_path = list(
-            Path(f"/users/sof/mini_dataset/{video_sel}").rglob("AVun*.mp4")
+            Path(f"/users/sof/{datset_choice}/{video_sel}").rglob("AVun*.mp4")
         )[0]
         action_timestamps = list(
-            Path(f"/users/sof/mini_dataset/{video_sel}").rglob(
+            Path(f"/users/sof/{datset_choice}/{video_sel}").rglob(
                 "*/action_camera_timestamps.csv"
             )
         )[0]
-        exp = "gz"
-        if exp == "of":
-            dir_exp = "opticalflow_ts"
-        elif exp == "rf":
-            dir_exp = "refreshtime_ts"
-        else:
-            dir_exp = "gaze_ts"
+
         gazes_dict = {}
 
-        gazes_dict["ELOFTR baseline"] = (
-            f"/users/sof/action_map_experiments/minidataset_hoover/{video_sel}/baseline/no_thresh/mapped_gaze/efficient_loftr/action_gaze_lk.csv"
+        gazes_dict["Insta360 GO3 Camera"] = (
+            f"/users/sof/action_map_experiments/{datset_choice}/{video_sel}/baseline/no_thresh/mapped_gaze/efficient_loftr/action_gaze_lk.csv"
         )
 
-        if exp == "rf":
-            gazes_dict[f"ELOFTR {exp}0.5"] = (
-                f"/users/sof/action_map_experiments/minidataset_hoover/{video_sel}/{dir_exp}/0.5/mapped_gaze/efficient_loftr/action_gaze_lk.csv"
-            )
-            gazes_dict[f"ELOFTR {exp}0.25"] = (
-                f"/users/sof/action_map_experiments/minidataset_hoover/{video_sel}/{dir_exp}/0.25/mapped_gaze/efficient_loftr/action_gaze_lk.csv"
-            )
-            gazes_dict[f"ELOFTR {exp}0.05"] = (
-                f"/users/sof/action_map_experiments/minidataset_hoover/{video_sel}/{dir_exp}/0.05/mapped_gaze/efficient_loftr/action_gaze_lk.csv"
-            )
-        else:
-            gazes_dict[f"ELOFTR {exp}1"] = (
-                f"/users/sof/action_map_experiments/minidataset_hoover/{video_sel}/{dir_exp}/1/mapped_gaze/efficient_loftr/action_gaze_lk.csv"
-            )
-            gazes_dict[f"ELOFTR {exp}5"] = (
-                f"/users/sof/action_map_experiments/minidataset_hoover/{video_sel}/{dir_exp}/5/mapped_gaze/efficient_loftr/action_gaze_lk.csv"
-            )
-            gazes_dict[f"ELOFTR {exp}10"] = (
-                f"/users/sof/action_map_experiments/minidataset_hoover/{video_sel}/{dir_exp}/10/mapped_gaze/efficient_loftr/action_gaze_lk.csv"
-            )
-            gazes_dict[f"ELOFTR {exp}20"] = (
-                f"/users/sof/action_map_experiments/minidataset_hoover/{video_sel}/{dir_exp}/20/mapped_gaze/efficient_loftr/action_gaze_lk.csv"
-            )
+        # if exp == "rf":
+        #     gazes_dict[f"Action Cam (ELOFTR {exp}0.5)"] = (
+        #         f"/users/sof/action_map_experiments/minidataset_hoover/{video_sel}/{dir_exp}/0.5/mapped_gaze/efficient_loftr/action_gaze_lk.csv"
+        #     )
+        #     gazes_dict[f"Action Cam (ELOFTR {exp}0.25)"] = (
+        #         f"/users/sof/action_map_experiments/minidataset_hoover/{video_sel}/{dir_exp}/0.25/mapped_gaze/efficient_loftr/action_gaze_lk.csv"
+        #     )
+        #     gazes_dict[f"Action Cam (ELOFTR {exp}0.05)"] = (
+        #         f"/users/sof/action_map_experiments/minidataset_hoover/{video_sel}/{dir_exp}/0.05/mapped_gaze/efficient_loftr/action_gaze_lk.csv"
+        #     )
+        # else:
+        #     gazes_dict[f"Action Cam (ELOFTR {exp}1)"] = (
+        #         f"/users/sof/action_map_experiments/minidataset_hoover/{video_sel}/{dir_exp}/1/mapped_gaze/efficient_loftr/action_gaze_lk.csv"
+        #     )
+        #     gazes_dict[f"Action Cam (ELOFTR {exp}5)"] = (
+        #         f"/users/sof/action_map_experiments/minidataset_hoover/{video_sel}/{dir_exp}/5/mapped_gaze/efficient_loftr/action_gaze_lk.csv"
+        #     )
+        #     gazes_dict[f"Action Cam (ELOFTR {exp}10)"] = (
+        #         f"/users/sof/action_map_experiments/minidataset_hoover/{video_sel}/{dir_exp}/10/mapped_gaze/efficient_loftr/action_gaze_lk.csv"
+        #     )
+        #     gazes_dict[f"Action Cam (ELOFTR {exp}20)"] = (
+        #         f"/users/sof/action_map_experiments/minidataset_hoover/{video_sel}/{dir_exp}/20/mapped_gaze/efficient_loftr/action_gaze_lk.csv"
+        #     )
 
         save_comparison_video(
             action_video_path=action_vid_path,
@@ -473,19 +464,15 @@ if __name__ == "__main__":
             neon_video_path=neon_vid_path,
             neon_worldtimestamps_path=neon_timestamps,
             neon_gaze_path=neon_gaze_path,
-            save_video_path=f"/users/sof/action_map_experiments/minidaset_rendering/{video_sel}/Neon_Action_{exp}.mp4",
-            same_frame=True,
+            save_video_path=f"/users/sof/action_map_experiments/alpha_bias_rendering/{video_sel}/Neon_Action_{exp}.mp4",
+            same_frame=False,
         )
 
         # view_video(
         #     action_video_path=action_vid_path,
         #     action_worldtimestamps_path=action_timestamps,
-        #     action_gaze_paths_dict={
-        #         "LOFTR over gaze": action_gaze_path,
-        #         "LOFTR rule based": action_gaze_path_0,
-        #     },
+        #     action_gaze_paths_dict=gazes_dict,
         #     neon_video_path=neon_vid_path,
         #     neon_worldtimestamps_path=neon_timestamps,
         #     neon_gaze_path=neon_gaze_path,
         # )
-        break

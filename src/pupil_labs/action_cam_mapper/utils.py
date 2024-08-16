@@ -92,7 +92,7 @@ class VideoHandler:
 
 
 def write_action_timestamp_csv(
-    neon_timestamps_path, aligned_relative_action_ts, saving_path=None
+    neon_timeseries_path, aligned_relative_action_ts, saving_path=None
 ):
     """Function that creates a timestamp csv file for the action camera recording in the same format as the world_timestamps.csv. The csv file is saved in the same directory as the world_timestamps.csv of the given Neon recording.
 
@@ -103,7 +103,7 @@ def write_action_timestamp_csv(
     """
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.INFO)
-
+    neon_timestamps_path = Path(neon_timeseries_path, "world_timestamps.csv")
     neon_timestamps_df = pd.read_csv(neon_timestamps_path)
     columns_for_mapping = neon_timestamps_df.columns
 

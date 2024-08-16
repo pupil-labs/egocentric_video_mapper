@@ -97,13 +97,17 @@ def write_action_timestamp_csv(
     """Function that creates a timestamp csv file for the action camera recording in the same format as the world_timestamps.csv. The csv file is saved in the same directory as the world_timestamps.csv of the given Neon recording.
 
     Args:
-        neon_timestamps_path (str): Path to the world_timestamps.csv of the Neon recording
+        neon_timeseries_path (str): Path to the directory of the Neon recording containing the world_timestamps.csv
         aligned_relative_action_ts (ndarray): Timestamps of the action camera recording, obtained from the metadata of the video file. This function assumes that the timestamps are already aligned with the relative Neon recording timestamps.
         saving_path (str, optional): Path to save the action camera timestamps csv file. If None, the file is saved in the same directory as the world_timestamps.csv. Defaults to None.
     """
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.INFO)
     neon_timestamps_path = Path(neon_timeseries_path, "world_timestamps.csv")
+    if not neon_timestamps_path.exists():
+        raise FileNotFoundError(
+            f"world_timestamps.csv not found in {neon_timeseries_path}, please make sure the file exists"
+        )
     neon_timestamps_df = pd.read_csv(neon_timestamps_path)
     columns_for_mapping = neon_timestamps_df.columns
 

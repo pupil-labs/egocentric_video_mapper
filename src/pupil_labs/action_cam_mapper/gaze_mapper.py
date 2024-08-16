@@ -20,6 +20,7 @@ class ActionCameraGazeMapper:
         neon_opticflow_csv=None,
         action_opticflow_csv=None,
         patch_size=1000,
+        verbose=True,
     ) -> None:
         self.neon_video = VideoHandler(neon_video_dir)  # name consistency
         self.action_video = VideoHandler(action_video_dir)
@@ -50,7 +51,7 @@ class ActionCameraGazeMapper:
             ],
             dtype=np.float32,
         )
-
+        self.verbose = verbose
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(logging.INFO)
 
@@ -683,9 +684,10 @@ class RulesBasedGazeMapper(ActionCameraGazeMapper):
         return gaze_relative_ts, neon_relative_ts, action_relative_ts
 
     def _step_through_video(self, i, video_type):
-        print(
-            f"{i} Step through video {video_type}(neon={self.corresponding_neon_idx[i]}, action={self.corresponding_action_idx[i]})"
-        )
+        if self.verbose:
+            print(
+                f"{i} Step through video {video_type}(neon={self.corresponding_neon_idx[i]}, action={self.corresponding_action_idx[i]})"
+            )
         relative_ts = (
             self.neon_video.timestamps[self.corresponding_neon_idx[i]]
             if video_type == "neon"
@@ -716,7 +718,8 @@ class RulesBasedGazeMapper(ActionCameraGazeMapper):
                 if video_type == "neon"
                 else self.action_video.timestamps[self.corresponding_action_idx[i - 1]]
             )
-            print(f"Moving {selected_kp} to {relative_ts}")
+            if self.verbose:
+                print(f"Moving {selected_kp} to {relative_ts}")
             self.correspondences[selected_kp] = self._move_point_to_video_timestamp(
                 self.correspondences[selected_kp],
                 prev_ts,
@@ -739,7 +742,8 @@ class RulesBasedGazeMapper(ActionCameraGazeMapper):
 
         if not hasattr(self, "correspondences"):
             self.logger.info("No correspondences found, refreshing transformation")
-            print("No correspondences found, refreshing transformation")
+            if self.verbose:
+                print("No correspondences found, refreshing transformation")
             refresh_needed = True
 
         if (
@@ -749,9 +753,10 @@ class RulesBasedGazeMapper(ActionCameraGazeMapper):
             self.logger.info(
                 f"Large gaze jump detected ({angle_between_gazes}deg), refreshing transformation"
             )
-            print(
-                f"Large gaze jump detected ({angle_between_gazes}deg), refreshing transformation"
-            )
+            if self.verbose:
+                print(
+                    f"Large gaze jump detected ({angle_between_gazes}deg), refreshing transformation"
+                )
             refresh_needed = True
 
         if (
@@ -761,9 +766,10 @@ class RulesBasedGazeMapper(ActionCameraGazeMapper):
             self.logger.info(
                 f"Optic flow threshold reached (action at {np.linalg.norm(accumulated_action_opticflow)}), refreshing transformation"
             )
-            print(
-                f"Optic flow threshold reached (action at {np.linalg.norm(accumulated_action_opticflow)}), refreshing transformation"
-            )
+            if self.verbose:
+                print(
+                    f"Optic flow threshold reached (action at {np.linalg.norm(accumulated_action_opticflow)}), refreshing transformation"
+                )
             refresh_needed = True
 
         if (
@@ -773,13 +779,15 @@ class RulesBasedGazeMapper(ActionCameraGazeMapper):
             self.logger.info(
                 f"Optic flow threshold reached(neon at {np.linalg.norm(accumulated_neon_opticflow)}), refreshing transformation"
             )
-            print(
-                f"Optic flow threshold reached(neon at {np.linalg.norm(accumulated_neon_opticflow)}), refreshing transformation"
-            )
+            if self.verbose:
+                print(
+                    f"Optic flow threshold reached(neon at {np.linalg.norm(accumulated_neon_opticflow)}), refreshing transformation"
+                )
             refresh_needed = True
 
         if refresh_thrshld is not None and gazes_since_refresh == refresh_thrshld:
-            print(f"Refreshing transformation after {refresh_thrshld} gazes")
+            if self.verbose:
+                print(f"Refreshing transformation after {refresh_thrshld} gazes")
             self.logger.info(f"Refreshing transformation after {refresh_thrshld} gazes")
             refresh_needed = True
 

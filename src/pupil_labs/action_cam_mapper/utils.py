@@ -182,9 +182,9 @@ def write_timestamp_csv(neon_timeseries_path, aligned_relative_ts, saving_path=N
     alternative_timestamps_df.to_csv(
         Path(saving_path, "alternative_camera_timestamps.csv"), index=False
     )
-    logger.info(
-        f"Timestamps for alternative camera recording saved at {Path(saving_path/'alternative_camera_timestamps.csv')}"
-    )
+    mssg = f"Timestamps for alternative camera recording saved at {Path(saving_path/'alternative_camera_timestamps.csv')}"
+    logger.info(mssg)
+    print(mssg)
 
 
 def generate_mapper_kwargs(

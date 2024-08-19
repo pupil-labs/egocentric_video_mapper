@@ -120,6 +120,7 @@ class OpticFlowCalculatorBase(ABC):
         )
         optic_flow_data.sort_values(by=["start"], inplace=True, ignore_index=True)
         optic_flow_data.to_csv(output_file, index=False)
+        print(f"Optic flow data saved to {output_file}")
 
 
 class OpticFlowCalculatorLK(OpticFlowCalculatorBase):
@@ -218,7 +219,7 @@ class OpticFlowCalculatorFarneback(OpticFlowCalculatorBase):
             cv.cvtColor(first_frame, cv.COLOR_BGR2GRAY),
             cv.cvtColor(second_frame, cv.COLOR_BGR2GRAY),
             None,
-            **self.farneback_params
+            **self.farneback_params,
         )
 
         avg_displacement_x = np.mean(dense_optical_flow[:, :, 0])

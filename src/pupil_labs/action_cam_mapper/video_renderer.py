@@ -4,6 +4,7 @@ import numpy as np
 from pathlib import Path
 from utils import VideoHandler
 import logging
+from tqdm import tqdm
 
 
 FONT_CHOICE = cv.FONT_HERSHEY_SIMPLEX
@@ -218,10 +219,9 @@ def save_gaze_video(video_path, timestamps_path, gaze_path, save_video_path):
         str(save_video_path), fourcc, int(video.fps), (video_width, video_height)
     )
     logger.info(f"Saving video at {save_video_path}")
-    print(f"Saving video at {save_video_path}")
     logger.info(f"Video width: {video_width}, Video height: {video_height}")
 
-    for i, gaze in enumerate(gaze_coordinates):
+    for i, gaze in enumerate(tqdm(gaze_coordinates)):
         frame = video.get_frame_by_timestamp(video.timestamps[i])
         frame = cv.cvtColor(frame, cv.COLOR_RGB2BGR)
         frame = draw_gaze_on_frame(frame, gaze)
@@ -291,7 +291,6 @@ def save_comparison_video(
         str(save_video_path), fourcc, int(action_video.fps), (video_width, video_height)
     )
     logger.info(f"Saving video at {save_video_path}")
-    print(f"Saving video at {save_video_path}")
     logger.info(f"Video width: {video_width}, Video height: {video_height}")
     gaze_color_list = [
         (0, 0, 255),
@@ -301,7 +300,7 @@ def save_comparison_video(
         (0, 255, 255),
     ]
 
-    for i, t in enumerate(action_time):
+    for i, t in enumerate(tqdm(action_time)):
         neon_frame = neon_video.get_frame_by_timestamp(t)
         neon_frame = cv.cvtColor(neon_frame, cv.COLOR_BGR2RGB)
         neon_frame_gaze = draw_gaze_on_frame(
@@ -388,6 +387,7 @@ def save_comparison_video(
         video.write(all_frames.astype(np.uint8))
     video.release()
     logger.info(f"Video saved at {save_video_path}")
+    print(f"Video saved at {save_video_path}")
 
 
 if __name__ == "__main__":

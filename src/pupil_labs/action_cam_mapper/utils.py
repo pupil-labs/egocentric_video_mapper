@@ -211,6 +211,7 @@ def generate_mapper_kwargs(
         "image_matcher": matcher_choice,
         "image_matcher_parameters": image_matcher_parameters[matcher_choice],
         "patch_size": 1000,
+        "verbose": False,
     }
     return mapper_kwargs
 

@@ -108,6 +108,8 @@ class OpticFlowCalculatorBase(ABC):
             optic_flow_data = pd.concat(
                 [optic_flow_file, optic_flow_data], ignore_index=True
             )
+        else:
+            Path(output_file).parent.mkdir(parents=True, exist_ok=True)
         optic_flow_data.drop_duplicates(
             subset=["start", "end"], keep="last", inplace=True
         )

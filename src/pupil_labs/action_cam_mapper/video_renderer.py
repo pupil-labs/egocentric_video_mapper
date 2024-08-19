@@ -212,7 +212,7 @@ def save_gaze_video(video_path, timestamps_path, gaze_path, save_video_path):
 
     video_height = video.height
     video_width = video.width
-    fourcc = cv.VideoWriter_fourcc(*"XVID")
+    fourcc = cv.VideoWriter_fourcc(*"mp4v")
     Path(save_video_path).parent.mkdir(parents=True, exist_ok=True)
     gaze_video = cv.VideoWriter(
         str(save_video_path), fourcc, int(video.fps), (video_width, video_height)
@@ -285,7 +285,7 @@ def save_comparison_video(
         video_height = video_height // len(action_gaze_dict.keys())
         video_width = video_width // len(action_gaze_dict.keys())
 
-    fourcc = cv.VideoWriter_fourcc(*"XVID")
+    fourcc = cv.VideoWriter_fourcc(*"mp4v")
     Path(save_video_path).parent.mkdir(parents=True, exist_ok=True)
     video = cv.VideoWriter(
         str(save_video_path), fourcc, int(action_video.fps), (video_width, video_height)
@@ -293,7 +293,6 @@ def save_comparison_video(
     logger.info(f"Saving video at {save_video_path}")
     print(f"Saving video at {save_video_path}")
     logger.info(f"Video width: {video_width}, Video height: {video_height}")
-    print(f"Video width: {video_width}, Video height: {video_height}")
     gaze_color_list = [
         (0, 0, 255),
         (0, 255, 0),
@@ -320,38 +319,38 @@ def save_comparison_video(
             (50, 80),
             color=(255, 255, 255),
         )
-        # neon_frame_gaze = write_text_on_frame(
-        #     neon_frame_gaze,
-        #     f"Time: {neon_video.get_closest_timestamp(t)[0]:.3f}s",
-        #     (50, 150),
-        #     size=2,
-        #     thickness=5,
-        # )
-        # neon_frame_gaze = write_text_on_frame(
-        #     neon_frame_gaze,
-        #     f"Time: {neon_video.get_closest_timestamp(t)[0]:.3f}s",
-        #     (50, 150),
-        #     size=2,
-        #     color=(255, 255, 255),
-        # )
+        neon_frame_gaze = write_text_on_frame(
+            neon_frame_gaze,
+            f"Time: {neon_video.get_closest_timestamp(t)[0]:.3f}s",
+            (50, 150),
+            size=2,
+            thickness=5,
+        )
+        neon_frame_gaze = write_text_on_frame(
+            neon_frame_gaze,
+            f"Time: {neon_video.get_closest_timestamp(t)[0]:.3f}s",
+            (50, 150),
+            size=2,
+            color=(255, 255, 255),
+        )
         all_frames = neon_frame_gaze.copy()
 
         action_frame = action_video.get_frame_by_timestamp(action_video.timestamps[i])
         action_frame = cv.cvtColor(action_frame, cv.COLOR_RGB2BGR)
-        # action_frame = write_text_on_frame(
-        #     action_frame,
-        #     f"Time: {t:.3f}s",
-        #     (50, 150),
-        #     size=2,
-        #     thickness=5,
-        # )
-        # action_frame = write_text_on_frame(
-        #     action_frame,
-        #     f"Time: {t:.3f}s",
-        #     (50, 150),
-        #     size=2,
-        #     color=(255, 255, 255),
-        # )
+        action_frame = write_text_on_frame(
+            action_frame,
+            f"Time: {t:.3f}s",
+            (50, 150),
+            size=2,
+            thickness=5,
+        )
+        action_frame = write_text_on_frame(
+            action_frame,
+            f"Time: {t:.3f}s",
+            (50, 150),
+            size=2,
+            color=(255, 255, 255),
+        )
         for i_matcher, matcher in enumerate(action_gaze_dict.keys()):
             gaze = action_gaze_dict[matcher][t]
             if same_frame:

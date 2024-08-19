@@ -185,3 +185,70 @@ def write_timestamp_csv(neon_timeseries_path, aligned_relative_ts, saving_path=N
     logger.info(
         f"Timestamps for alternative camera recording saved at {Path(saving_path/'alternative_camera_timestamps.csv')}"
     )
+
+
+def generate_mapper_kwargs(
+    neon_timeseries_path, alternative_vid_path, output_dir, matcher_choice
+):
+
+    image_matcher_parameters = {
+        "Efficient_LOFTR": {"model_type": "opt", "gpu_num": 0},
+        "LOFTR": {"location": "indoor", "gpu_num": 0},
+        "DISK_LightGlue": {"num_features": 2048, "gpu_num": 0},
+        "DeDoDe_LightGlue": {"num_features": 5000, "gpu_num": 0},
+    }
+
+    optic_flow_output_dir = Path(output_dir, "optic_flow")
+    neon_vid_path = Path(neon_timeseries_path).rglob("*.mp4").__next__()
+    mapper_kwargs = {
+        "neon_gaze_csv": Path(neon_timeseries_path, "gaze.csv"),
+        "neon_video_dir": neon_vid_path,
+        "action_video_dir": alternative_vid_path,
+        "neon_timestamps": Path(neon_timeseries_path, "world_timestamps.csv"),
+        "action_timestamps": Path(output_dir, "alternative_camera_timestamps.csv"),
+        "neon_opticflow_csv": Path(optic_flow_output_dir, "neon_lk_of.csv"),
+        "action_opticflow_csv": Path(optic_flow_output_dir, "alternative_lk_of.csv"),
+        "image_matcher": matcher_choice,
+        "image_matcher_parameters": image_matcher_parameters[matcher_choice],
+        "patch_size": 1000,
+    }
+    return mapper_kwargs
+
+
+def generate_comparison_video_kwargs(
+    neon_timeseries_path,
+    alternative_vid_path,
+    mapped_gaze_path,
+    output_dir,
+    image_matcher_choice,
+):
+    action_gaze_dict = {image_matcher_choice.upper(): Path(mapped_gaze_path)}
+    neon_vid_path = Path(neon_timeseries_path).rglob("*.mp4").__next__()
+
+    rendered_video_path = Path(
+        output_dir,
+        f"rendered_videos/neon_comparison_{image_matcher_choice.lower()}_lk.mp4",
+    )
+    Path(rendered_video_path).parent.mkdir(parents=True, exist_ok=True)
+
+    comparison_video_args = {
+        "action_video_path": alternative_vid_path,
+        "action_worldtimestamps_path": Path(
+            output_dir, "alternative_camera_timestamps.csv"
+        ),
+        "action_gaze_paths_dict": action_gaze_dict,
+        "neon_video_path": neon_vid_path,
+        "neon_worldtimestamps_path": Path(neon_timeseries_path, "world_timestamps.csv"),
+        "neon_gaze_path": Path(neon_timeseries_path, "gaze.csv"),
+        "save_video_path": rendered_video_path,
+    }
+    return comparison_video_args
+
+
+def get_file(folder_path, file_suffix=".mp4", required_in_name="0"):
+    return [
+        os.path.join(root, name)
+        for root, dirs, files in os.walk(folder_path)
+        for name in files
+        if name.endswith(file_suffix) and required_in_name in name
+    ][0]

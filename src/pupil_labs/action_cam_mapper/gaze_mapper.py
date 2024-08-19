@@ -1,3 +1,4 @@
+from tqdm import tqdm
 import cv2 as cv
 import logging
 import numpy as np
@@ -53,7 +54,7 @@ class ActionCameraGazeMapper:
         )
         self.verbose = verbose
         self.logger = logging.getLogger(__name__)
-        self.logger.setLevel(logging.INFO)
+        self.logger.setLevel(logging.ERROR)
 
     def _create_action_gaze_df(self):
         """Creates a DataFrame with the same formatting as the neon_gaze DataFrame, the 'gaze x [px]',
@@ -565,7 +566,14 @@ class RulesBasedGazeMapper(ActionCameraGazeMapper):
         acc_neon_opticflow = 0
         last_gaze = self.neon_gaze.iloc[0][["gaze x [px]", "gaze y [px]"]].values
 
-        for i, gaze_ts in enumerate(self.action_gaze["timestamp [ns]"].values):
+        for i, gaze_ts in enumerate(
+            tqdm(
+                self.action_gaze["timestamp [ns]"].values,
+                desc="Processing gaze timestamps",
+                total=len(self.action_gaze["timestamp [ns]"].values),
+                bar_format="{l_bar}{bar} | {n_fmt}/{total_fmt} [{percentage:.0f}%]",
+            )
+        ):
 
             gaze_neon = self.neon_gaze.loc[
                 self.neon_gaze["timestamp [ns]"] == gaze_ts,

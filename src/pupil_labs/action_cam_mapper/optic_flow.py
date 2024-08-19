@@ -6,6 +6,7 @@ import logging
 from dataclasses import dataclass, asdict, field
 from abc import ABC, abstractmethod
 from utils import VideoHandler
+from tqdm import tqdm
 
 
 @dataclass
@@ -47,7 +48,11 @@ class OpticFlowCalculatorBase(ABC):
         )
 
         requested_optic_flow = dict(start=[], end=[], dx=[], dy=[], angle=[])
-        for ts1, ts2 in zip(selected_timestamps[:-1], selected_timestamps[1:]):
+        for ts1, ts2 in tqdm(
+            zip(selected_timestamps[:-1], selected_timestamps[1:]),
+            desc="Calculating optic flow",
+            total=len(selected_timestamps) - 1,
+        ):
             if self._is_optic_flow_already_calculated(ts1, ts2):
                 flow = self._retrieve_optic_flow(ts1, ts2)
             else:

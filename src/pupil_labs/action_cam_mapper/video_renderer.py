@@ -110,88 +110,118 @@ def draw_gaze_on_frame(
 
 
 def view_video(
-    action_video_path,
-    action_worldtimestamps_path,
-    action_gaze_paths_dict,
+    alternative_video_path,
+    alternative_timestamps_path,
+    alternative_gaze_paths_dict,
     neon_video_path,
     neon_worldtimestamps_path,
     neon_gaze_path,
 ):
 
-    action_coords = {
+    alternative_coords = {
         matcher: get_gaze_per_frame(
-            gaze_file=path, video_timestamps=action_worldtimestamps_path
+            gaze_file=path, video_timestamps=alternative_timestamps_path
         )
-        for matcher, path in action_gaze_paths_dict.items()
+        for matcher, path in alternative_gaze_paths_dict.items()
     }
     neon_gaze_coords_list = get_gaze_per_frame(
         gaze_file=neon_gaze_path, video_timestamps=neon_worldtimestamps_path
     )
 
-    action_video = VideoHandler(action_video_path)
+    alternative_video = VideoHandler(alternative_video_path)
     neon_video = VideoHandler(neon_video_path)
 
     neon_timestamps = pd.read_csv(
         neon_worldtimestamps_path, dtype={"timestamp [ns]": np.float64}
     )
-    action_timestamps = pd.read_csv(
-        action_worldtimestamps_path, dtype={"timestamp [ns]": np.float64}
+    alternative_timestamps = pd.read_csv(
+        alternative_timestamps_path, dtype={"timestamp [ns]": np.float64}
     )
 
-    action_time = action_timestamps["timestamp [ns]"].values
-    action_time -= neon_timestamps["timestamp [ns]"].values[0]
-    action_time /= 1e9
+    alternative_time = alternative_timestamps["timestamp [ns]"].values
+    alternative_time -= neon_timestamps["timestamp [ns]"].values[0]
+    alternative_time /= 1e9
+
     neon_gaze_dict = {
         t: gaze for t, gaze in zip(neon_video.timestamps, neon_gaze_coords_list)
     }
-    action_gaze_dict = {
-        matcher: {t: gaze for t, gaze in zip(action_time, coords_list)}
-        for matcher, coords_list in action_coords.items()
+    alternative_gaze_dict = {
+        matcher: {t: gaze for t, gaze in zip(alternative_time, coords_list)}
+        for matcher, coords_list in alternative_coords.items()
     }
 
-    video_height = max(action_video.height, neon_video.height)
-    video_width = neon_video.width + action_video.width * len(action_gaze_dict.keys())
-    video_height = video_height // len(action_gaze_dict.keys())
-    video_width = video_width // len(action_gaze_dict.keys())
+    video_height = max(alternative_video.height, neon_video.height)
+    video_width = neon_video.width + alternative_video.width * len(
+        alternative_gaze_dict.keys()
+    )
+    video_height = video_height // len(alternative_gaze_dict.keys())
+    video_width = video_width // len(alternative_gaze_dict.keys())
 
-    for i, t in enumerate(action_time):
+    for i, t in enumerate(alternative_time):
         neon_frame = neon_video.get_frame_by_timestamp(t)
         neon_frame = cv.cvtColor(neon_frame, cv.COLOR_BGR2RGB)
 
         neon_frame_gaze = draw_gaze_on_frame(
             neon_frame.copy(), neon_gaze_dict[neon_video.get_closest_timestamp(t)[0]]
         )
-        neon_frame_gaze = write_text_on_frame(neon_frame_gaze, "Neon Scene", (50, 50))
+        neon_frame_gaze = write_text_on_frame(
+            neon_frame_gaze, "Neon Scene Camera", (50, 80), thickness=5
+        )
+        neon_frame_gaze = write_text_on_frame(
+            neon_frame_gaze, "Neon Scene Camera", (50, 80), color=(255, 255, 255)
+        )
         neon_frame_gaze = write_text_on_frame(
             neon_frame_gaze,
             f"Time: {neon_video.get_closest_timestamp(t)[0]:.3f}",
-            (50, 100),
+            (50, 150),
+            size=2,
+            thickness=5,
+        )
+        neon_frame_gaze = write_text_on_frame(
+            neon_frame_gaze,
+            f"Time: {neon_video.get_closest_timestamp(t)[0]:.3f}",
+            (50, 150),
+            size=2,
+            color=(255, 255, 255),
         )
 
         all_frames = neon_frame_gaze.copy()
 
-        action_frame = action_video.get_frame_by_timestamp(action_video.timestamps[i])
-        action_frame = cv.cvtColor(action_frame, cv.COLOR_RGB2BGR)
+        alternative_frame = alternative_video.get_frame_by_timestamp(
+            alternative_video.timestamps[i]
+        )
+        alternative_frame = cv.cvtColor(alternative_frame, cv.COLOR_RGB2BGR)
 
-        for matcher in action_gaze_dict.keys():
-            gaze = action_gaze_dict[matcher][t]
-            action_frame_gaze = draw_gaze_on_frame(
-                action_frame.copy(),
+        for matcher in alternative_gaze_dict.keys():
+            gaze = alternative_gaze_dict[matcher][t]
+            alternative_frame_gaze = draw_gaze_on_frame(
+                alternative_frame.copy(),
                 gaze,
             )
-            action_frame_gaze = write_text_on_frame(
-                action_frame_gaze, matcher, (50, 50)
+            alternative_frame_gaze = write_text_on_frame(
+                alternative_frame_gaze, matcher, (50, 80), thickness=5
             )
-            action_frame_gaze = write_text_on_frame(
-                action_frame_gaze, f"Time: {t:.3f}", (50, 100)
+            alternative_frame_gaze = write_text_on_frame(
+                alternative_frame_gaze, matcher, (50, 80), color=(255, 255, 255)
             )
-            all_frames, action_frame_gaze = pad_images_height(
-                all_frames, action_frame_gaze
+            alternative_frame_gaze = write_text_on_frame(
+                alternative_frame_gaze, f"Time: {t:.3f}", (50, 150), size=2, thickness=5
             )
-            all_frames = np.concatenate([all_frames, action_frame_gaze], axis=1)
+            alternative_frame_gaze = write_text_on_frame(
+                alternative_frame_gaze,
+                f"Time: {t:.3f}",
+                (50, 150),
+                size=2,
+                color=(255, 255, 255),
+            )
 
-        all_frames = cv.resize(all_frames, (video_width, video_height))  # w,h
-        cv.imshow("both_frames", all_frames)
+            all_frames, alternative_frame_gaze = pad_images_height(
+                all_frames, alternative_frame_gaze
+            )
+            all_frames = np.concatenate([all_frames, alternative_frame_gaze], axis=1)
+
+        all_frames = cv.resize(all_frames, (video_width, video_height))
+        cv.imshow("Comparing mappings", all_frames)
         cv.waitKey(100)
         pressedKey = cv.waitKey(50) & 0xFF
         if pressedKey == ord(" "):
@@ -232,9 +262,9 @@ def save_gaze_video(video_path, timestamps_path, gaze_path, save_video_path):
 
 
 def save_comparison_video(
-    action_video_path,
-    action_worldtimestamps_path,
-    action_gaze_paths_dict,
+    alternative_video_path,
+    alternative_timestamps_path,
+    alternative_gaze_paths_dict,
     neon_video_path,
     neon_worldtimestamps_path,
     neon_gaze_path,
@@ -244,51 +274,54 @@ def save_comparison_video(
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.INFO)
 
-    action_coords = {
+    alternative_coords = {
         matcher: get_gaze_per_frame(
-            gaze_file=path, video_timestamps=action_worldtimestamps_path
+            gaze_file=path, video_timestamps=alternative_timestamps_path
         )
-        for matcher, path in action_gaze_paths_dict.items()
+        for matcher, path in alternative_gaze_paths_dict.items()
     }
     neon_gaze_coords_list = get_gaze_per_frame(
         gaze_file=neon_gaze_path, video_timestamps=neon_worldtimestamps_path
     )
 
-    action_video = VideoHandler(action_video_path)
+    alternative_video = VideoHandler(alternative_video_path)
     neon_video = VideoHandler(neon_video_path)
 
     neon_timestamps = pd.read_csv(
         neon_worldtimestamps_path, dtype={"timestamp [ns]": np.float64}
     )
-    action_timestamps = pd.read_csv(
-        action_worldtimestamps_path, dtype={"timestamp [ns]": np.float64}
+    alternative_timestamps = pd.read_csv(
+        alternative_timestamps_path, dtype={"timestamp [ns]": np.float64}
     )
 
-    action_time = action_timestamps["timestamp [ns]"].values
-    action_time -= neon_timestamps["timestamp [ns]"].values[0]
-    action_time /= 1e9
+    alternative_time = alternative_timestamps["timestamp [ns]"].values
+    alternative_time -= neon_timestamps["timestamp [ns]"].values[0]
+    alternative_time /= 1e9
     neon_gaze_dict = {
         t: gaze for t, gaze in zip(neon_video.timestamps, neon_gaze_coords_list)
     }
-    action_gaze_dict = {
-        matcher: {t: gaze for t, gaze in zip(action_time, coords_list)}
-        for matcher, coords_list in action_coords.items()
+    alternative_gaze_dict = {
+        matcher: {t: gaze for t, gaze in zip(alternative_time, coords_list)}
+        for matcher, coords_list in alternative_coords.items()
     }
 
-    video_height = max(action_video.height, neon_video.height)
+    video_height = max(alternative_video.height, neon_video.height)
     video_width = neon_video.width + (
-        action_video.width * len(action_gaze_dict.keys())
+        alternative_video.width * len(alternative_gaze_dict.keys())
         if not same_frame
-        else action_video.width
+        else alternative_video.width
     )
     if not same_frame:
-        video_height = video_height // len(action_gaze_dict.keys())
-        video_width = video_width // len(action_gaze_dict.keys())
+        video_height = video_height // len(alternative_gaze_dict.keys())
+        video_width = video_width // len(alternative_gaze_dict.keys())
 
     fourcc = cv.VideoWriter_fourcc(*"mp4v")
     Path(save_video_path).parent.mkdir(parents=True, exist_ok=True)
     video = cv.VideoWriter(
-        str(save_video_path), fourcc, int(action_video.fps), (video_width, video_height)
+        str(save_video_path),
+        fourcc,
+        int(alternative_video.fps),
+        (video_width, video_height),
     )
     logger.info(f"Saving video at {save_video_path}")
     logger.info(f"Video width: {video_width}, Video height: {video_height}")
@@ -300,7 +333,7 @@ def save_comparison_video(
         (0, 255, 255),
     ]
 
-    for i, t in enumerate(tqdm(action_time)):
+    for i, t in enumerate(tqdm(alternative_time)):
         neon_frame = neon_video.get_frame_by_timestamp(t)
         neon_frame = cv.cvtColor(neon_frame, cv.COLOR_BGR2RGB)
         neon_frame_gaze = draw_gaze_on_frame(
@@ -334,55 +367,79 @@ def save_comparison_video(
         )
         all_frames = neon_frame_gaze.copy()
 
-        action_frame = action_video.get_frame_by_timestamp(action_video.timestamps[i])
-        action_frame = cv.cvtColor(action_frame, cv.COLOR_RGB2BGR)
-        action_frame = write_text_on_frame(
-            action_frame,
-            f"Time: {t:.3f}s",
-            (50, 150),
-            size=2,
-            thickness=5,
+        alternative_frame = alternative_video.get_frame_by_timestamp(
+            alternative_video.timestamps[i]
         )
-        action_frame = write_text_on_frame(
-            action_frame,
-            f"Time: {t:.3f}s",
-            (50, 150),
-            size=2,
-            color=(255, 255, 255),
-        )
-        for i_matcher, matcher in enumerate(action_gaze_dict.keys()):
-            gaze = action_gaze_dict[matcher][t]
+        alternative_frame = cv.cvtColor(alternative_frame, cv.COLOR_RGB2BGR)
+
+        for i_matcher, matcher in enumerate(alternative_gaze_dict.keys()):
+            gaze = alternative_gaze_dict[matcher][t]
             if same_frame:
-                action_frame = draw_gaze_on_frame(
-                    action_frame, gaze, gaze_color=gaze_color_list[i_matcher]
+                alternative_frame = draw_gaze_on_frame(
+                    alternative_frame, gaze, gaze_color=gaze_color_list[i_matcher]
                 )
-                action_frame = write_text_on_frame(
-                    action_frame,
+                alternative_frame = write_text_on_frame(
+                    alternative_frame,
                     matcher,
-                    (50, 50 + 50 * i_matcher),
+                    (50, 50 + 70 * i_matcher),
+                    size=2,
                     color=gaze_color_list[i_matcher],
                 )
             else:
-                action_frame_gaze = draw_gaze_on_frame(action_frame.copy(), gaze)
-                action_frame_gaze = write_text_on_frame(
-                    action_frame_gaze,
+                alternative_frame = write_text_on_frame(
+                    alternative_frame,
+                    f"Time: {t:.3f}s",
+                    (50, 150),
+                    size=2,
+                    thickness=5,
+                )
+                alternative_frame = write_text_on_frame(
+                    alternative_frame,
+                    f"Time: {t:.3f}s",
+                    (50, 150),
+                    size=2,
+                    color=(255, 255, 255),
+                )
+                alternative_frame_gaze = draw_gaze_on_frame(
+                    alternative_frame.copy(), gaze
+                )
+                alternative_frame_gaze = write_text_on_frame(
+                    alternative_frame_gaze,
                     matcher,
                     (50, 80),
                     thickness=5,
                 )
-                action_frame_gaze = write_text_on_frame(
-                    action_frame_gaze,
+                alternative_frame_gaze = write_text_on_frame(
+                    alternative_frame_gaze,
                     matcher,
                     (50, 80),
                     color=(255, 255, 255),
                 )
-                all_frames, action_frame_gaze = pad_images_height(
-                    all_frames, action_frame_gaze
+                all_frames, alternative_frame_gaze = pad_images_height(
+                    all_frames, alternative_frame_gaze
                 )
-                all_frames = np.concatenate([all_frames, action_frame_gaze], axis=1)
+                all_frames = np.concatenate(
+                    [all_frames, alternative_frame_gaze], axis=1
+                )
         if same_frame:
-            all_frames, action_frame = pad_images_height(all_frames, action_frame)
-            all_frames = np.concatenate([all_frames, action_frame], axis=1)
+            alternative_frame = write_text_on_frame(
+                alternative_frame,
+                f"Time: {t:.3f}s",
+                (50, 50 + 70 * len(alternative_gaze_dict.keys())),
+                size=2,
+                thickness=5,
+            )
+            alternative_frame = write_text_on_frame(
+                alternative_frame,
+                f"Time: {t:.3f}s",
+                (50, 50 + 70 * len(alternative_gaze_dict.keys())),
+                size=2,
+                color=(255, 255, 255),
+            )
+            all_frames, alternative_frame = pad_images_height(
+                all_frames, alternative_frame
+            )
+            all_frames = np.concatenate([all_frames, alternative_frame], axis=1)
         all_frames = cv.resize(all_frames, (video_width, video_height))  # w,h
         video.write(all_frames.astype(np.uint8))
     video.release()
@@ -392,11 +449,12 @@ def save_comparison_video(
 
 if __name__ == "__main__":
     videoss = [
-        "street_inclined",
-        "street_very_inclined",
-        "street_slight_inclined",
+        "office1",
+        # "street_very_inclined",
+        # "street_slight_inclined",
     ]
-    datset_choice = "dataset_bias"
+    datset_choice = "mini_dataset"
+    datset_exp = "minidataset_hoover"
     exp = "gz"
     if exp == "of":
         dir_exp = "opticalflow_ts"
@@ -429,48 +487,48 @@ if __name__ == "__main__":
         gazes_dict = {}
 
         gazes_dict["Insta360 GO3 Camera"] = (
-            f"/users/sof/action_map_experiments/{datset_choice}/{video_sel}/baseline/no_thresh/mapped_gaze/efficient_loftr/action_gaze_lk.csv"
+            f"/users/sof/action_map_experiments/{datset_exp}/{video_sel}/baseline/no_thresh/mapped_gaze/efficient_loftr/action_gaze_lk.csv"
         )
 
-        # if exp == "rf":
-        #     gazes_dict[f"Action Cam (ELOFTR {exp}0.5)"] = (
-        #         f"/users/sof/action_map_experiments/minidataset_hoover/{video_sel}/{dir_exp}/0.5/mapped_gaze/efficient_loftr/action_gaze_lk.csv"
-        #     )
-        #     gazes_dict[f"Action Cam (ELOFTR {exp}0.25)"] = (
-        #         f"/users/sof/action_map_experiments/minidataset_hoover/{video_sel}/{dir_exp}/0.25/mapped_gaze/efficient_loftr/action_gaze_lk.csv"
-        #     )
-        #     gazes_dict[f"Action Cam (ELOFTR {exp}0.05)"] = (
-        #         f"/users/sof/action_map_experiments/minidataset_hoover/{video_sel}/{dir_exp}/0.05/mapped_gaze/efficient_loftr/action_gaze_lk.csv"
-        #     )
-        # else:
-        #     gazes_dict[f"Action Cam (ELOFTR {exp}1)"] = (
-        #         f"/users/sof/action_map_experiments/minidataset_hoover/{video_sel}/{dir_exp}/1/mapped_gaze/efficient_loftr/action_gaze_lk.csv"
-        #     )
-        #     gazes_dict[f"Action Cam (ELOFTR {exp}5)"] = (
-        #         f"/users/sof/action_map_experiments/minidataset_hoover/{video_sel}/{dir_exp}/5/mapped_gaze/efficient_loftr/action_gaze_lk.csv"
-        #     )
-        #     gazes_dict[f"Action Cam (ELOFTR {exp}10)"] = (
-        #         f"/users/sof/action_map_experiments/minidataset_hoover/{video_sel}/{dir_exp}/10/mapped_gaze/efficient_loftr/action_gaze_lk.csv"
-        #     )
-        #     gazes_dict[f"Action Cam (ELOFTR {exp}20)"] = (
-        #         f"/users/sof/action_map_experiments/minidataset_hoover/{video_sel}/{dir_exp}/20/mapped_gaze/efficient_loftr/action_gaze_lk.csv"
-        #     )
+        if exp == "rf":
+            gazes_dict[f"Action Cam (ELOFTR {exp}0.5)"] = (
+                f"/users/sof/action_map_experiments/{datset_exp}/{video_sel}/{dir_exp}/0.5/mapped_gaze/efficient_loftr/action_gaze_lk.csv"
+            )
+            gazes_dict[f"Action Cam (ELOFTR {exp}0.25)"] = (
+                f"/users/sof/action_map_experiments/{datset_exp}/{video_sel}/{dir_exp}/0.25/mapped_gaze/efficient_loftr/action_gaze_lk.csv"
+            )
+            gazes_dict[f"Action Cam (ELOFTR {exp}0.05)"] = (
+                f"/users/sof/action_map_experiments/{datset_exp}/{video_sel}/{dir_exp}/0.05/mapped_gaze/efficient_loftr/action_gaze_lk.csv"
+            )
+        else:
+            gazes_dict[f"Action Cam (ELOFTR {exp}1)"] = (
+                f"/users/sof/action_map_experiments/{datset_exp}/{video_sel}/{dir_exp}/1/mapped_gaze/efficient_loftr/action_gaze_lk.csv"
+            )
+            gazes_dict[f"Action Cam (ELOFTR {exp}5)"] = (
+                f"/users/sof/action_map_experiments/{datset_exp}/{video_sel}/{dir_exp}/5/mapped_gaze/efficient_loftr/action_gaze_lk.csv"
+            )
+            gazes_dict[f"Action Cam (ELOFTR {exp}10)"] = (
+                f"/users/sof/action_map_experiments/{datset_exp}/{video_sel}/{dir_exp}/10/mapped_gaze/efficient_loftr/action_gaze_lk.csv"
+            )
+            gazes_dict[f"Action Cam (ELOFTR {exp}20)"] = (
+                f"/users/sof/action_map_experiments/{datset_exp}/{video_sel}/{dir_exp}/20/mapped_gaze/efficient_loftr/action_gaze_lk.csv"
+            )
 
         save_comparison_video(
-            action_video_path=action_vid_path,
-            action_worldtimestamps_path=action_timestamps,
-            action_gaze_paths_dict=gazes_dict,
+            alternative_video_path=action_vid_path,
+            alternative_timestamps_path=action_timestamps,
+            alternative_gaze_paths_dict=gazes_dict,
             neon_video_path=neon_vid_path,
             neon_worldtimestamps_path=neon_timestamps,
             neon_gaze_path=neon_gaze_path,
-            save_video_path=f"/users/sof/action_map_experiments/alpha_bias_rendering/{video_sel}/Neon_Action_{exp}.mp4",
-            same_frame=False,
+            save_video_path=f"/users/sof/action_map_experiments/alpha_min_rendering/{video_sel}/same_Neon_Action_{exp}.mp4",
+            same_frame=True,
         )
 
         # view_video(
-        #     action_video_path=action_vid_path,
-        #     action_worldtimestamps_path=action_timestamps,
-        #     action_gaze_paths_dict=gazes_dict,
+        #     alternative_video_path=action_vid_path,
+        #     alternative_timestamps_path=action_timestamps,
+        #     alternative_gaze_paths_dict=gazes_dict,
         #     neon_video_path=neon_vid_path,
         #     neon_worldtimestamps_path=neon_timestamps,
         #     neon_gaze_path=neon_gaze_path,

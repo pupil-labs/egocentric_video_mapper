@@ -203,11 +203,13 @@ def generate_mapper_kwargs(
     mapper_kwargs = {
         "neon_gaze_csv": Path(neon_timeseries_path, "gaze.csv"),
         "neon_video_dir": neon_vid_path,
-        "action_video_dir": alternative_vid_path,
+        "alternative_video_dir": alternative_vid_path,
         "neon_timestamps": Path(neon_timeseries_path, "world_timestamps.csv"),
-        "action_timestamps": Path(output_dir, "alternative_camera_timestamps.csv"),
+        "alternative_timestamps": Path(output_dir, "alternative_camera_timestamps.csv"),
         "neon_opticflow_csv": Path(optic_flow_output_dir, "neon_lk_of.csv"),
-        "action_opticflow_csv": Path(optic_flow_output_dir, "alternative_lk_of.csv"),
+        "alternative_opticflow_csv": Path(
+            optic_flow_output_dir, "alternative_lk_of.csv"
+        ),
         "image_matcher": matcher_choice,
         "image_matcher_parameters": image_matcher_parameters[matcher_choice],
         "patch_size": 1000,
@@ -223,7 +225,7 @@ def generate_comparison_video_kwargs(
     output_dir,
     image_matcher_choice,
 ):
-    action_gaze_dict = {image_matcher_choice.upper(): Path(mapped_gaze_path)}
+    alternative_gaze_dict = {"Alternative Egocentric View": Path(mapped_gaze_path)}
     neon_vid_path = Path(neon_timeseries_path).rglob("*.mp4").__next__()
 
     rendered_video_path = Path(
@@ -233,15 +235,16 @@ def generate_comparison_video_kwargs(
     Path(rendered_video_path).parent.mkdir(parents=True, exist_ok=True)
 
     comparison_video_args = {
-        "action_video_path": alternative_vid_path,
-        "action_worldtimestamps_path": Path(
+        "alternative_video_path": alternative_vid_path,
+        "alternative_timestamps_path": Path(
             output_dir, "alternative_camera_timestamps.csv"
         ),
-        "action_gaze_paths_dict": action_gaze_dict,
+        "alternative_gaze_paths_dict": alternative_gaze_dict,
         "neon_video_path": neon_vid_path,
         "neon_worldtimestamps_path": Path(neon_timeseries_path, "world_timestamps.csv"),
         "neon_gaze_path": Path(neon_timeseries_path, "gaze.csv"),
         "save_video_path": rendered_video_path,
+        "same_frame": False,
     }
     return comparison_video_args
 

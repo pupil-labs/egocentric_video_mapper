@@ -663,15 +663,18 @@ class RulesBasedGazeMapper(ActionCameraGazeMapper):
             ] = gaze_action_camera
 
             gazes_since_refresh += 1
+        if saving_path is None:
+            saving_path = (
+                Path(self.neon_video.path).parent / "alternative_camera_gaze.csv"
+            )
+        else:
+            Path(saving_path).parent.mkdir(parents=True, exist_ok=True)
 
         self.action_gaze.to_csv(
-            (
-                Path(self.neon_video.path).parent / "action_gaze.csv"
-                if saving_path is None
-                else saving_path
-            ),
+            saving_path,
             index=False,
         )
+        return saving_path
 
     def _obtain_relative_ts(self, gaze_ts, gaze_index):
         gaze_relative_ts = (gaze_ts - self.neon_ts["timestamp [ns]"].values[0]) / 1e9

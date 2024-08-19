@@ -569,9 +569,8 @@ class RulesBasedGazeMapper(ActionCameraGazeMapper):
         for i, gaze_ts in enumerate(
             tqdm(
                 self.action_gaze["timestamp [ns]"].values,
-                desc="Processing gaze timestamps",
+                desc="Mapping gaze signal",
                 total=len(self.action_gaze["timestamp [ns]"].values),
-                bar_format="{l_bar}{bar} | {n_fmt}/{total_fmt} [{percentage:.0f}%]",
             )
         ):
 
@@ -682,6 +681,7 @@ class RulesBasedGazeMapper(ActionCameraGazeMapper):
             saving_path,
             index=False,
         )
+        print(f"Gaze mapped to alternative camera saved at {saving_path}")
         return saving_path
 
     def _obtain_relative_ts(self, gaze_ts, gaze_index):

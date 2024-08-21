@@ -516,7 +516,7 @@ class ActionCameraGazeMapper2(ActionCameraGazeMapper):
         return indexes
 
 
-class RulesBasedGazeMapper(ActionCameraGazeMapper):
+class EgocentricMapper(ActionCameraGazeMapper):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.corresponding_alternative_idx = self._get_corresponding_timestamps_index(

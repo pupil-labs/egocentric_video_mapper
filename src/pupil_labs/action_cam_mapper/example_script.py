@@ -6,7 +6,7 @@ import logging
 from optic_flow import OpticFlowCalculatorLK, OpticFlowCalculatorFarneback
 from utils import VideoHandler, write_timestamp_csv
 from sync_videos import OffsetCalculator
-from gaze_mapper import RulesBasedGazeMapper
+from gaze_mapper import EgocentricMapper
 from video_renderer import save_comparison_video
 from pathlib import Path
 import cProfile as profile
@@ -99,7 +99,7 @@ def main_mapper(
 
     param = matcher["parameters"]
     print(f'Using {matcher["choice"]} with parameters: {param}')
-    mapper = RulesBasedGazeMapper(
+    mapper = EgocentricMapper(
         neon_gaze_csv=neon_gaze_csv,
         neon_video_dir=neon_vid_path,
         alternative_video_dir=alternative_vid_path,

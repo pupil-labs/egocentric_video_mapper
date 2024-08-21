@@ -25,16 +25,17 @@ def get_file(folder_path, file_suffix=".mp4", required_in_name="0"):
 def calc_optic_flow(
     neon_video, alternative_video, output_dir, optical_flow_method="farneback"
 ):
+    optical_flow_method = optical_flow_method.lower()
     output_dir = Path(output_dir, "optic_flow")
     Path(output_dir).mkdir(parents=True, exist_ok=True)
 
     if optical_flow_method.lower() == "farneback":
-        alternative_of = OpticFlowCalculatorFarneback(video_dir=alternative_video)
-        neon_of = OpticFlowCalculatorFarneback(video_dir=neon_video)
+        alternative_of = OpticFlowCalculatorFarneback(video_path=alternative_video)
+        neon_of = OpticFlowCalculatorFarneback(video_path=neon_video)
 
-    elif optical_flow_method.lower() == "lk":
-        alternative_of = OpticFlowCalculatorLK(video_dir=alternative_video)
-        neon_of = OpticFlowCalculatorLK(video_dir=neon_video)
+    elif optical_flow_method.lower() == "lukas-kanade":
+        alternative_of = OpticFlowCalculatorLK(video_path=alternative_video)
+        neon_of = OpticFlowCalculatorLK(video_path=neon_video)
     else:
         raise ValueError('Invalid optic flow choice. Choose from "farneback" or "lk"')
 
@@ -45,8 +46,8 @@ def calc_optic_flow(
         output_dir, f"alternative_{optical_flow_method}_of.csv"
     )
     neon_saving_path = Path(output_dir, f"neon_{optical_flow_method}_of.csv")
-    alternative_of.write_to_csv(output_file=alternative_saving_path)
-    neon_of.write_to_csv(output_file=neon_saving_path)
+    alternative_of.write_to_csv(output_file_path=alternative_saving_path)
+    neon_of.write_to_csv(output_file_path=neon_saving_path)
 
     return alternative_saving_path, neon_saving_path
 
@@ -72,7 +73,7 @@ def align_videos(
     write_timestamp_csv(
         neon_timeseries_path,
         VideoHandler(alternative_vid_path).timestamps + t_offset,
-        saving_path=output_dir,
+        output_file_dir=output_dir,
     )
 
 
@@ -121,7 +122,7 @@ def main(
     neon_timeseries_dir,
     output_dir,
     image_matcher,
-    optic_flow_choice="lk",
+    optic_flow_choice="lukas-kanade",
     render_video=False,
     mapper_thresholds={
         "refresh_time_thrshld": None,
@@ -221,7 +222,7 @@ def profiling_map(
     neon_timeseries_dir,
     output_dir,
     image_matcher,
-    optic_flow_choice="lk",
+    optic_flow_choice="lukas-kanade",
     render_video=False,
 ):
 
@@ -253,7 +254,9 @@ if __name__ == "__main__":
         help="Image matcher to use.",
     )
     parser.add_argument(
-        "--optic_flow_choice", choices=["lk", "farneback"], default="lk"
+        "--optic_flow_choice",
+        choices=["lukas-kanade", "farneback"],
+        default="lukas-kanade",
     )
     parser.add_argument(
         "--refresh_time_thrshld",

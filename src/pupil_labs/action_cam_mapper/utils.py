@@ -92,22 +92,28 @@ class VideoHandler:
         return previous_timestamp, next_timestamp
 
 
-def write_timestamp_csv(neon_timeseries_path, aligned_relative_ts, saving_path=None):
+def write_timestamp_csv(neon_timeseries_dir, aligned_relative_ts, output_file_dir=None):
     """Function that creates a timestamp csv file for the alternative camera recording in the same format as the world_timestamps.csv. The csv file is saved in the same directory as the world_timestamps.csv of the given Neon recording.
 
     Args:
-        neon_timeseries_path (str): Path to the directory of the Neon recording containing the world_timestamps.csv
+        neon_timeseries_dir (str): Path to the directory of the Neon recording containing the world_timestamps.csv
         aligned_relative_ts (ndarray): Timestamps of the alternative camera recording, obtained from the metadata of the video file. This function assumes that the timestamps are already aligned with the relative Neon recording timestamps (offset is corrected).
-        saving_path (str, optional): Path to save the alternative camera timestamps csv file. If None, the file is saved in the same directory as the world_timestamps.csv. Defaults to None.
+        output_file_dir (str, optional): Path to the directory where thealternative camera timestamps csv file will be saved. If None, the file is saved in the same directory as the world_timestamps.csv. Defaults to None.
     """
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.INFO)
 
-    neon_timestamps_path = Path(neon_timeseries_path, "world_timestamps.csv")
+    output_file_path = Path(
+        neon_timeseries_dir if output_file_dir is None else output_file_dir,
+        "alternative_camera_timestamps.csv",
+    )
+
+    neon_timestamps_path = Path(neon_timeseries_dir, "world_timestamps.csv")
     if not neon_timestamps_path.exists():
         raise FileNotFoundError(
-            f"world_timestamps.csv not found in {neon_timeseries_path}, please make sure the file exists"
+            f"world_timestamps.csv not found in {neon_timeseries_dir}, please make sure the file exists"
         )
+
     neon_timestamps_df = pd.read_csv(neon_timestamps_path)
     columns_for_mapping = neon_timestamps_df.columns
 
@@ -176,13 +182,8 @@ def write_timestamp_csv(neon_timeseries_path, aligned_relative_ts, saving_path=N
         0
     ]
 
-    saving_path = (
-        Path(neon_timestamps_path).parent if saving_path is None else Path(saving_path)
-    )
-    alternative_timestamps_df.to_csv(
-        Path(saving_path, "alternative_camera_timestamps.csv"), index=False
-    )
-    mssg = f"Timestamps for alternative camera recording saved at {Path(saving_path/'alternative_camera_timestamps.csv')}"
+    alternative_timestamps_df.to_csv(output_file_path, index=False)
+    mssg = f"Timestamps for alternative camera recording saved at {output_file_path}"
     logger.info(mssg)
     print(mssg)
 
@@ -220,14 +221,14 @@ def generate_mapper_kwargs(
 
 
 def generate_comparison_video_kwargs(
-    neon_timeseries_path,
+    neon_timeseries_dir,
     alternative_vid_path,
     mapped_gaze_path,
     output_dir,
     image_matcher_choice,
 ):
     alternative_gaze_dict = {"Alternative Egocentric View": Path(mapped_gaze_path)}
-    neon_vid_path = Path(neon_timeseries_path).rglob("*.mp4").__next__()
+    neon_vid_path = Path(neon_timeseries_dir).rglob("*.mp4").__next__()
 
     rendered_video_path = Path(
         output_dir,
@@ -242,18 +243,18 @@ def generate_comparison_video_kwargs(
         ),
         "alternative_gaze_paths_dict": alternative_gaze_dict,
         "neon_video_path": neon_vid_path,
-        "neon_worldtimestamps_path": Path(neon_timeseries_path, "world_timestamps.csv"),
-        "neon_gaze_path": Path(neon_timeseries_path, "gaze.csv"),
+        "neon_worldtimestamps_path": Path(neon_timeseries_dir, "world_timestamps.csv"),
+        "neon_gaze_path": Path(neon_timeseries_dir, "gaze.csv"),
         "save_video_path": rendered_video_path,
         "same_frame": False,
     }
     return comparison_video_args
 
 
-def get_file(folder_path, file_suffix=".mp4", required_in_name="0"):
+def get_file(folder_dir, file_suffix=".mp4", required_in_name="0"):
     return [
         os.path.join(root, name)
-        for root, dirs, files in os.walk(folder_path)
+        for root, dirs, files in os.walk(folder_dir)
         for name in files
         if name.endswith(file_suffix) and required_in_name in name
     ][0]

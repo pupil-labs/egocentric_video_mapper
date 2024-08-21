@@ -22,19 +22,19 @@ class OpticFlowResult:
 
 
 class OpticFlowCalculatorBase(ABC):
-    def __init__(self, video_dir):
-        self.video_handler = VideoHandler(video_dir)
+    def __init__(self, video_path):
+        self.video_handler = VideoHandler(video_path)
         self.results = pd.DataFrame.from_dict(
             dict(start=[], end=[], dx=[], dy=[], angle=[])
         )
         self.logger = logging.getLogger(__name__)
 
-    def process_video(self, start_time=None, end_time=None, output_file=None):
+    def process_video(self, start_time=None, end_time=None, output_file_path=None):
         """Method to calculate the optic flow in a defined video interval. Optic flow is calculated between consecutive frames in the interval.
         Args:
             start_time (float): start time of the video interval to calculate the optic flow signal. Defaults to None. If not specified, the start time is the first timestamp in the video.
             end_time (float): end time of the video interval to calculate the optic flow signal. Defaults to None. If not specified, the end time is the last timestamp in the video.
-            output_file (str, optional): Path to a csv file to store the calculated optic flow signal. Defaults to None. If not specified, the signal is not saved to a file.
+            output_file_path (str, optional): Path to a csv file to store the calculated optic flow signal. Defaults to None. If not specified, the signal is not saved to a file.
 
         Returns:
             DataFrame: Pandas DataFrame containing the calculated optic flow signal. Has the following columns: 'start', 'end', 'dx', 'dy', 'angle'.
@@ -73,8 +73,8 @@ class OpticFlowCalculatorBase(ABC):
         )
         self.results.drop_duplicates(subset=["start", "end"], keep="last", inplace=True)
         self.results.sort_values(by=["start"], inplace=True, ignore_index=True)
-        if output_file:
-            self.write_to_csv(output_file, requested_optic_flow)
+        if output_file_path:
+            self.write_to_csv(output_file_path, requested_optic_flow)
         return requested_optic_flow
 
     def _is_optic_flow_already_calculated(self, start_timestamp, end_timestamp):
@@ -99,42 +99,42 @@ class OpticFlowCalculatorBase(ABC):
     ) -> dict:
         return
 
-    def write_to_csv(self, output_file, optic_flow_data=None):
+    def write_to_csv(self, output_file_path, optic_flow_data=None):
         """Method to write the optic flow data to a csv file. If the file already exists, the data is appended to it, duplicates are removed and the file is sorted by the 'start' column to ensure the data is in chronological order.
         Args:
-            output_file (str): Path to a csv file to store the calculated optic flow signal.
+            output_file_path (str): Path to a csv file to store the calculated optic flow signal.
             optic_flow_data (DataFrame, optional): Pandas DataFrame containing an optic flow signal. Defaults to None. If not specified, the optic flow signal stored in results attribute is used.
         """
         if optic_flow_data is None:
             optic_flow_data = self.results
-        if Path(output_file).exists():
+        if Path(output_file_path).exists():
             self.logger.warning("File already exists, appending to it")
-            optic_flow_file = pd.read_csv(output_file, dtype=np.float32)
+            optic_flow_file = pd.read_csv(output_file_path, dtype=np.float32)
             optic_flow_data = pd.concat(
                 [optic_flow_file, optic_flow_data], ignore_index=True
             )
         else:
-            Path(output_file).parent.mkdir(parents=True, exist_ok=True)
+            Path(output_file_path).parent.mkdir(parents=True, exist_ok=True)
         optic_flow_data.drop_duplicates(
             subset=["start", "end"], keep="last", inplace=True
         )
         optic_flow_data.sort_values(by=["start"], inplace=True, ignore_index=True)
-        optic_flow_data.to_csv(output_file, index=False)
-        print(f"Optic flow data saved to {output_file}")
+        optic_flow_data.to_csv(output_file_path, index=False)
+        print(f"Optic flow data saved to {output_file_path}")
 
 
 class OpticFlowCalculatorLK(OpticFlowCalculatorBase):
     """Class to calculate optic flow using the Lucas-Kanade method. Backward and forward flow are calculated and compared to ensure the accuracy of points found in the forward flow.
 
     Args:
-        video_dir (str): Path to the video file.
+        video_path (str): Path to the video file.
         grid_spacing (int, optional): Spacing between grid points to track. Defaults to 50. The smaller the spacing, the more points are tracked and the more time expensive the calculation is.
         params (dict, optional): Parameters for the Lucas-Kanade method. Defaults to {'winSize': (15, 15), 'maxLevel': 2, 'criteria': (cv.TERM_CRITERIA_EPS | cv.TERM_CRITERIA_COUNT, 10, 0.03)}.
     """
 
     def __init__(
         self,
-        video_dir,
+        video_path,
         grid_spacing=50,
         params={
             "winSize": (15, 15),
@@ -142,7 +142,7 @@ class OpticFlowCalculatorLK(OpticFlowCalculatorBase):
             "criteria": (cv.TERM_CRITERIA_EPS | cv.TERM_CRITERIA_COUNT, 10, 0.03),
         },
     ):
-        super().__init__(video_dir)
+        super().__init__(video_path)
         self.grid_spacing = grid_spacing
         self.lk_params = params
         self.grid_points = self._create_grid_points()
@@ -192,13 +192,13 @@ class OpticFlowCalculatorFarneback(OpticFlowCalculatorBase):
     """Class to calculate dense optic flow using the  Gunnar Farneback's algorithm.
 
     Args:
-        video_dir (str): Path to the video file.
+        video_path (str): Path to the video file.
         params (dict, optional): Parameters for the Gunnar Farneback algorithm. Defaults to {'pyr_scale': 0.5, 'levels': 3, 'winsize': 15, 'iterations': 3, 'poly_n': 5, 'poly_sigma': 1.2, 'flags': 0}.
     """
 
     def __init__(
         self,
-        video_dir,
+        video_path,
         params={
             "pyr_scale": 0.5,
             "levels": 3,
@@ -209,7 +209,7 @@ class OpticFlowCalculatorFarneback(OpticFlowCalculatorBase):
             "flags": 0,
         },
     ):
-        super().__init__(video_dir)
+        super().__init__(video_path)
         self.farneback_params = params
 
     def _calculate_optical_flow_between_frames(

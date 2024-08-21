@@ -1,7 +1,6 @@
 import numpy as np
 import scipy.signal
 import scipy.interpolate
-import pandas as pd
 import logging
 import matplotlib.pyplot as plt
 

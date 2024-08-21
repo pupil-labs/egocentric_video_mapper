@@ -12,19 +12,20 @@ class ActionCameraGazeMapper:
     def __init__(
         self,
         neon_gaze_csv,
-        neon_video_dir,
-        alternative_video_dir,
+        neon_video_path,
+        alternative_video_path,
         neon_timestamps,
         alternative_timestamps,
         image_matcher,
         image_matcher_parameters,
         neon_opticflow_csv=None,
         alternative_opticflow_csv=None,
+        output_dir=None,
         patch_size=1000,
         verbose=True,
     ) -> None:
-        self.neon_video = VideoHandler(neon_video_dir)  # name consistency
-        self.alternative_video = VideoHandler(alternative_video_dir)
+        self.neon_video = VideoHandler(neon_video_path)
+        self.alternative_video = VideoHandler(alternative_video_path)
 
         self.neon_ts = pd.read_csv(neon_timestamps)
         self.alternative_ts = pd.read_csv(alternative_timestamps)
@@ -54,7 +55,9 @@ class ActionCameraGazeMapper:
             ],
             dtype=np.float32,
         )
-
+        self.output_dir = (
+            output_dir if output_dir is not None else Path(neon_video_path).parent
+        )
         self.verbose = verbose
 
         self.logger = logging.getLogger(__name__)
@@ -116,12 +119,9 @@ class ActionCameraGazeMapper:
             ] = gaze_alternative_camera
 
         if saving_path is None:
-            saving_path = (
-                Path(self.neon_video.path).parent / "alternative_camera_gaze.csv"
-            )
+            saving_path = Path(self.output_dir / "alternative_camera_gaze.csv")
+        Path(saving_path).parent.mkdir(parents=True, exist_ok=True)
 
-        else:
-            Path(saving_path).parent.mkdir(parents=True, exist_ok=True)
         self.alternative_gaze.to_csv(saving_path, index=False)
         return saving_path
 
@@ -663,16 +663,10 @@ class EgocentricMapper(ActionCameraGazeMapper):
             gazes_since_refresh += 1
 
         if saving_path is None:
-            saving_path = (
-                Path(self.neon_video.path).parent / "alternative_camera_gaze.csv"
-            )
-        else:
-            Path(saving_path).parent.mkdir(parents=True, exist_ok=True)
+            saving_path = Path(self.output_dir, "alternative_camera_gaze.csv")
+        Path(saving_path).parent.mkdir(parents=True, exist_ok=True)
 
-        self.alternative_gaze.to_csv(
-            saving_path,
-            index=False,
-        )
+        self.alternative_gaze.to_csv(saving_path, index=False)
         print(f"Gaze mapped to alternative camera saved at {saving_path}")
         return saving_path
 

@@ -94,27 +94,25 @@ def main_mapper(
     },
     verbose=False,
 ):
-    output_dir = Path(output_dir, f'mapped_gaze/{matcher["choice"]}')
-    Path(output_dir).mkdir(parents=True, exist_ok=True)
+    output_dir = Path(output_dir, f'mapped_gaze/{matcher["choice"].lower()}')
 
     param = matcher["parameters"]
     print(f'Using {matcher["choice"]} with parameters: {param}')
     mapper = EgocentricMapper(
         neon_gaze_csv=neon_gaze_csv,
-        neon_video_dir=neon_vid_path,
-        alternative_video_dir=alternative_vid_path,
+        neon_video_path=neon_vid_path,
+        alternative_video_path=alternative_vid_path,
         neon_timestamps=neon_timestamps,
         alternative_timestamps=alternative_timestamps,
         image_matcher=matcher["choice"],
         image_matcher_parameters=param,
         neon_opticflow_csv=neon_opticflow_csv,
         alternative_opticflow_csv=alternative_opticflow_csv,
+        output_dir=output_dir,
         patch_size=1000,
         verbose=verbose,
     )
-
-    gaze_csv_path = Path(output_dir, f"action_gaze_{optic_flow_choice}.csv")
-    mapper.map_gaze(saving_path=gaze_csv_path, **thresholds)
+    gaze_csv_path = mapper.map_gaze(**thresholds)
     return gaze_csv_path
 
 

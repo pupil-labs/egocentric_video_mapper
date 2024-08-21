@@ -188,23 +188,23 @@ def write_timestamp_csv(neon_timeseries_path, aligned_relative_ts, saving_path=N
 
 
 def generate_mapper_kwargs(
-    neon_timeseries_path, alternative_vid_path, output_dir, matcher_choice
+    neon_timeseries_dir, alternative_vid_path, output_dir, matcher_choice
 ):
-
+    matcher_choice = matcher_choice.lower()
     image_matcher_parameters = {
-        "Efficient_LOFTR": {"model_type": "opt", "gpu_num": 0},
-        "LOFTR": {"location": "indoor", "gpu_num": 0},
-        "DISK_LightGlue": {"num_features": 2048, "gpu_num": 0},
-        "DeDoDe_LightGlue": {"num_features": 5000, "gpu_num": 0},
+        "efficient_loftr": {"model_type": "opt", "gpu_num": 0},
+        "loftr": {"location": "indoor", "gpu_num": 0},
+        "disk_lightglue": {"num_features": 2048, "gpu_num": 0},
+        "dedode_lightglue": {"num_features": 5000, "gpu_num": 0},
     }
 
     optic_flow_output_dir = Path(output_dir, "optic_flow")
-    neon_vid_path = Path(neon_timeseries_path).rglob("*.mp4").__next__()
+    neon_vid_path = Path(neon_timeseries_dir).rglob("*.mp4").__next__()
     mapper_kwargs = {
-        "neon_gaze_csv": Path(neon_timeseries_path, "gaze.csv"),
-        "neon_video_dir": neon_vid_path,
-        "alternative_video_dir": alternative_vid_path,
-        "neon_timestamps": Path(neon_timeseries_path, "world_timestamps.csv"),
+        "neon_gaze_csv": Path(neon_timeseries_dir, "gaze.csv"),
+        "neon_video_path": neon_vid_path,
+        "alternative_video_path": alternative_vid_path,
+        "neon_timestamps": Path(neon_timeseries_dir, "world_timestamps.csv"),
         "alternative_timestamps": Path(output_dir, "alternative_camera_timestamps.csv"),
         "neon_opticflow_csv": Path(optic_flow_output_dir, "neon_lk_of.csv"),
         "alternative_opticflow_csv": Path(
@@ -212,6 +212,7 @@ def generate_mapper_kwargs(
         ),
         "image_matcher": matcher_choice,
         "image_matcher_parameters": image_matcher_parameters[matcher_choice],
+        "output_dir": Path(output_dir, f"mapped_gaze/{matcher_choice}"),
         "patch_size": 1000,
         "verbose": False,
     }

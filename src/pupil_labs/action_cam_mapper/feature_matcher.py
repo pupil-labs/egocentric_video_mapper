@@ -415,13 +415,13 @@ class EfficientLoFTRImageMatcher(ImageMatcher):
 
 class ImageMatcherFactory:
     def get_matcher(self, image_matcher, image_matcher_parameters):
-        if image_matcher.upper() == "LOFTR":
+        if image_matcher.lower() == "loftr":
             return LOFTRImageMatcher(**image_matcher_parameters)
-        if image_matcher.upper() == "DISK_LIGHTGLUE":
+        if image_matcher.lower() == "disk_lightglue":
             return DISK_LightGlueImageMatcher(**image_matcher_parameters)
-        if image_matcher.upper() == "EFFICIENT_LOFTR":
+        if image_matcher.lower() == "efficient_loftr":
             return EfficientLoFTRImageMatcher(**image_matcher_parameters)
-        if image_matcher.upper() == "DEDODE_LIGHTGLUE":
+        if image_matcher.lower() == "dedode_lightglue":
             return DeDoDe_LightGlueImageMatcher(**image_matcher_parameters)
         else:
             raise ValueError("Invalid image matcher")

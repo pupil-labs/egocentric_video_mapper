@@ -222,17 +222,17 @@ def generate_mapper_kwargs(
         "disk_lightglue": {"num_features": 2048, "gpu_num": 0},
         "dedode_lightglue": {"num_features": 5000, "gpu_num": 0},
     }
+    neon_vid_path = Path(neon_timeseries_dir).rglob("*.mp4").__next__()
 
     optic_flow_output_dir = Path(output_dir, "optic_flow")
-    method = "lk" if optical_flow_method.lower() == "lukas-kanade" else "farneback"
-    neon_vid_path = Path(neon_timeseries_dir).rglob("*.mp4").__next__()
+    method = "lk" if optical_flow_method.lower() == "lucas-kanade" else "farneback"
     mapper_kwargs = {
         "neon_gaze_csv": Path(neon_timeseries_dir, "gaze.csv"),
         "neon_video_path": neon_vid_path,
-        "alternative_video_path": alternative_vid_path,
         "neon_timestamps": Path(neon_timeseries_dir, "world_timestamps.csv"),
-        "alternative_timestamps": Path(output_dir, "alternative_camera_timestamps.csv"),
         "neon_opticflow_csv": Path(optic_flow_output_dir, f"neon_{method}_of.csv"),
+        "alternative_video_path": alternative_vid_path,
+        "alternative_timestamps": Path(output_dir, "alternative_camera_timestamps.csv"),
         "alternative_opticflow_csv": Path(
             optic_flow_output_dir, f"alternative_{method}_of.csv"
         ),

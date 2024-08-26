@@ -1,24 +1,26 @@
 import os
+import av
 import numpy as np
 import pandas as pd
 from pathlib import Path
 import logging
-import pupil_labs.video as plv
+from pupil_labs.dynamic_content_on_rim.video.read import get_frame
 
 
 class VideoHandler:
     def __init__(self, video_path):
         self.path = video_path
-        self.video_stream = self.open_video()
+        self.video_container = av.open(self.path)
         self._timestamps = self.get_timestamps()
+        self.set_properties()
 
     @property
     def height(self):
-        return self.video_stream.height
+        return self._height
 
     @property
     def width(self):
-        return self.video_stream.width
+        return self._width
 
     @property
     def timestamps(self):
@@ -26,32 +28,50 @@ class VideoHandler:
 
     @property
     def fps(self):
-        return (
-            self.video_stream.average_rate.numerator
-            / self.video_stream.average_rate.denominator
-        )
-
-    def open_video(self):
-        container = plv.open(self.path)
-        video_stream = container.streams.video[0]
-        if video_stream.type != "video":
-            raise ValueError(f"No video stream found in {self.path}")
-        video_stream.logger.setLevel(logging.ERROR)
-        return video_stream
-
-    def close_video(self):
-        self.video_stream.close()
-
-    def get_timestamps(self):
-        video_timestamps = np.asarray(self.video_stream.pts)
-        video_timestamps = video_timestamps / self.video_stream.time_base.denominator
-        return np.asarray(video_timestamps, dtype=np.float32)
+        return self._fps
 
     def get_frame_by_timestamp(self, timestamp):
-        timestamp, timestamp_index = self.get_closest_timestamp(timestamp)
-        frame = self.video_stream.frames[timestamp_index]
-        frame = frame.to_image()
-        return np.asarray(frame)
+        timestamp, _ = self.get_closest_timestamp(timestamp)
+        pts = np.int32(np.round(timestamp * self._time_base.denominator))
+
+        if pts < self.lpts:  # if seeking backwards, reset the video container
+            self._read_frames = 0
+            self.video_container = av.open(self.path)
+
+        if self._read_frames == 0:
+            self.lpts = -1
+            self.last_frame = None
+
+        vid_frame, self.lpts = get_frame(
+            self.video_container, pts, self.lpts, self.last_frame
+        )
+        frame = vid_frame.to_ndarray(format="rgb24")
+        self.last_frame = vid_frame
+        self._read_frames += 1
+        return frame
+
+    def get_timestamps(self):
+        container = av.open(self.path)
+        video = container.streams.video[0]
+        av_timestamps = [
+            packet.pts / video.time_base.denominator
+            for packet in container.demux(video)
+            if packet.pts is not None
+        ]
+        container.close()
+        av_timestamps.sort()
+        return np.asarray(av_timestamps, dtype=np.float32)
+
+    def set_properties(self):
+        container = av.open(self.path)
+        video = container.streams.video[0]
+        self._height = video.height
+        self._width = video.width
+        self._fps = float(video.average_rate)
+        self._time_base = video.time_base
+        container.close()
+        self._read_frames = 0
+        self.lpts = -1
 
     def get_timestamps_in_interval(self, start_time=0, end_time=np.inf):
         assert (
@@ -61,7 +81,7 @@ class VideoHandler:
             (self.timestamps >= start_time) & (self.timestamps <= end_time)
         ]
 
-    def get_closest_timestamp(self, time):
+    def get_closest_timestamp(self, time):  # debug
         after_index = np.searchsorted(self.timestamps, time)
         if after_index == len(self.timestamps):
             after_index = len(self.timestamps) - 1
@@ -101,7 +121,7 @@ def write_timestamp_csv(neon_timeseries_dir, aligned_relative_ts, output_file_di
         output_file_dir (str, optional): Path to the directory where thealternative camera timestamps csv file will be saved. If None, the file is saved in the same directory as the world_timestamps.csv. Defaults to None.
     """
     logger = logging.getLogger(__name__)
-    logger.setLevel(logging.INFO)
+    logger.setLevel(logging.WARNING)
 
     output_file_path = Path(
         neon_timeseries_dir if output_file_dir is None else output_file_dir,
@@ -189,7 +209,11 @@ def write_timestamp_csv(neon_timeseries_dir, aligned_relative_ts, output_file_di
 
 
 def generate_mapper_kwargs(
-    neon_timeseries_dir, alternative_vid_path, output_dir, matcher_choice
+    neon_timeseries_dir,
+    alternative_vid_path,
+    output_dir,
+    matcher_choice,
+    optical_flow_method,
 ):
     matcher_choice = matcher_choice.lower()
     image_matcher_parameters = {
@@ -200,6 +224,7 @@ def generate_mapper_kwargs(
     }
 
     optic_flow_output_dir = Path(output_dir, "optic_flow")
+    method = "lk" if optical_flow_method.lower() == "lukas-kanade" else "farneback"
     neon_vid_path = Path(neon_timeseries_dir).rglob("*.mp4").__next__()
     mapper_kwargs = {
         "neon_gaze_csv": Path(neon_timeseries_dir, "gaze.csv"),
@@ -207,13 +232,13 @@ def generate_mapper_kwargs(
         "alternative_video_path": alternative_vid_path,
         "neon_timestamps": Path(neon_timeseries_dir, "world_timestamps.csv"),
         "alternative_timestamps": Path(output_dir, "alternative_camera_timestamps.csv"),
-        "neon_opticflow_csv": Path(optic_flow_output_dir, "neon_lk_of.csv"),
+        "neon_opticflow_csv": Path(optic_flow_output_dir, f"neon_{method}_of.csv"),
         "alternative_opticflow_csv": Path(
-            optic_flow_output_dir, "alternative_lk_of.csv"
+            optic_flow_output_dir, f"alternative_{method}_of.csv"
         ),
         "image_matcher": matcher_choice,
         "image_matcher_parameters": image_matcher_parameters[matcher_choice],
-        "output_dir": Path(output_dir, f"mapped_gaze/{matcher_choice}"),
+        "output_dir": Path(output_dir, f"mapped_gaze/{matcher_choice}_{method}"),
         "patch_size": 1000,
         "verbose": False,
     }
@@ -232,7 +257,7 @@ def generate_comparison_video_kwargs(
 
     rendered_video_path = Path(
         output_dir,
-        f"rendered_videos/neon_comparison_{image_matcher_choice.lower()}_lk.mp4",
+        f"rendered_videos/neon_comparison_{Path(mapped_gaze_path).parent}.mp4",
     )
     Path(rendered_video_path).parent.mkdir(parents=True, exist_ok=True)
 

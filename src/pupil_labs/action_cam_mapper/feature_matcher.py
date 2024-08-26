@@ -67,9 +67,10 @@ class LOFTRImageMatcher(ImageMatcher):
         )
         src_tensor, src_scaled2original = self._preprocess_image(src_image)
 
-        input_dict = {"image0": src_tensor, "image1": dst_tensor}
-        for k in input_dict.keys():
-            input_dict[k] = input_dict[k].to(self.device)
+        input_dict = {
+            "image0": src_tensor.to(self.device),
+            "image1": dst_tensor.to(self.device),
+        }
 
         with torch.inference_mode():
             correspondences = self.image_matcher(input_dict)
@@ -360,9 +361,10 @@ class EfficientLoFTRImageMatcher(ImageMatcher):
             else src_image.copy()
         )
         src_tensor, src_scaled2original = self._preprocess_image(src_image)
-        batch = {"image0": src_tensor, "image1": dst_tensor}
-        for k in batch.keys():
-            batch[k] = batch[k].to(self.device)
+        batch = {
+            "image0": src_tensor.to(self.device),
+            "image1": dst_tensor.to(self.device),
+        }
 
         with torch.inference_mode():
             self.image_matcher(batch)

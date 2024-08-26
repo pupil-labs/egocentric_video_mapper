@@ -228,3 +228,38 @@ class OpticFlowCalculatorFarneback(OpticFlowCalculatorBase):
         return OpticFlowResult(
             dx=avg_displacement_x, dy=avg_displacement_y, start=first_ts, end=second_ts
         )
+
+
+def calculate_optic_flow(
+    neon_timeseries_dir,
+    alternative_video_path,
+    output_dir,
+    optical_flow_method="farneback",
+):
+    neon_video_path = Path(neon_timeseries_dir).rglob("*.mp4").__next__()
+    optical_flow_method = optical_flow_method.lower()
+    output_dir = Path(output_dir, "optic_flow")
+    Path(output_dir).mkdir(parents=True, exist_ok=True)
+
+    if optical_flow_method.lower() == "farneback":
+        alternative_of = OpticFlowCalculatorFarneback(video_path=alternative_video_path)
+        neon_of = OpticFlowCalculatorFarneback(video_path=neon_video_path)
+        method = "farneback"
+
+    elif optical_flow_method.lower() == "lucas-kanade":
+        alternative_of = OpticFlowCalculatorLK(video_path=alternative_video_path)
+        neon_of = OpticFlowCalculatorLK(video_path=neon_video_path)
+        method = "lk"
+    else:
+        raise ValueError(
+            'Invalid optic flow choice. Choose from "farneback" or "lucas-kanade"'
+        )
+
+    optic_flow_neon = neon_of.process_video(
+        output_file_path=Path(output_dir, f"neon_{method}_of.csv")
+    )
+    optic_flow_alternative = alternative_of.process_video(
+        output_file_path=Path(output_dir, f"alternative_{method}_of.csv")
+    )
+
+    return optic_flow_neon, optic_flow_alternative

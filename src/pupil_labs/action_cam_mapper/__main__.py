@@ -1,6 +1,6 @@
 import sys
 import logging
-from optic_flow import OpticFlowCalculatorLK, OpticFlowCalculatorFarneback
+from optic_flow import calculate_optic_flow
 from utils import (
     VideoHandler,
     write_timestamp_csv,
@@ -12,41 +12,7 @@ from gaze_mapper import EgocentricMapper
 from video_renderer import save_comparison_video, save_gaze_video
 from pathlib import Path
 import argparse
-
-
-def calculate_optic_flow(
-    neon_timeseries_dir,
-    alternative_video_path,
-    output_dir,
-    optical_flow_method="farneback",
-):
-    neon_video_path = Path(neon_timeseries_dir).rglob("*.mp4").__next__()
-    optical_flow_method = optical_flow_method.lower()
-    output_dir = Path(output_dir, "optic_flow")
-    Path(output_dir).mkdir(parents=True, exist_ok=True)
-
-    if optical_flow_method.lower() == "farneback":
-        alternative_of = OpticFlowCalculatorFarneback(video_path=alternative_video_path)
-        neon_of = OpticFlowCalculatorFarneback(video_path=neon_video_path)
-        method = "farneback"
-
-    elif optical_flow_method.lower() == "lucas-kanade":
-        alternative_of = OpticFlowCalculatorLK(video_path=alternative_video_path)
-        neon_of = OpticFlowCalculatorLK(video_path=neon_video_path)
-        method = "lk"
-    else:
-        raise ValueError(
-            'Invalid optic flow choice. Choose from "farneback" or "lucas-kanade"'
-        )
-
-    optic_flow_neon = neon_of.process_video(
-        output_file_path=Path(output_dir, f"neon_{method}_of.csv")
-    )
-    optic_flow_alternative = alternative_of.process_video(
-        output_file_path=Path(output_dir, f"alternative_{method}_of.csv")
-    )
-
-    return optic_flow_neon, optic_flow_alternative
+from rich.logging import RichHandler
 
 
 def align_videos(
@@ -154,13 +120,14 @@ def main(args=None):
     logging.basicConfig(
         format="[%(levelname)s]  %(funcName)s function in %(name)s (%(asctime)s):  %(message)s",
         handlers=[
-            logging.FileHandler(Path(args.output_dir, "whole_pipeline.log")),
+            logging.FileHandler(
+                Path(args.output_dir, "egocentric_mapper_pipeline.log")
+            ),
             stream_handler,
         ],
         datefmt="%m/%d/%Y %I:%M:%S %p",
         level=logging.INFO,
     )
-    logging.info("Logging setup complete. This is a test log message.")
     logger = logging.getLogger(__name__)
     logger.info(
         "[white bold on #0d122a]◎ Egocentric Mapper Module by Pupil Labs[/]",

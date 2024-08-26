@@ -45,6 +45,7 @@ class OffsetCalculator:
         )
         self.time_offset = None
         self.logger = logging.getLogger(__name__)
+        self.logger.setLevel(logging.WARNING)
 
     @staticmethod
     def _resample_signal(signal, timestamps, resampling_frequency=100):

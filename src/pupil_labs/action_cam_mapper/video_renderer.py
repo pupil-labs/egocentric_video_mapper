@@ -60,19 +60,6 @@ def pad_images_height(image_1, image_2):
 def write_text_on_frame(
     frame, text, position, font=FONT_CHOICE, color=(0, 0, 0), thickness=4, size=3
 ):
-    """Writes text on the frame
-
-    Args:
-        frame (ndarray): Numpy array containing an image with shape (height, width, channels)
-        text (str): Text to be written on the frame
-        position (tuple): Tuple containing the x,y coordinates of the text
-        font (int, optional): Font of the text. Defaults to cv.FONT_HERSHEY_DUPLEX.
-        color (tuple, optional): Color of the text. Defaults to (0, 0, 0).
-        thickness (int, optional): Thickness of the text. Defaults to 2.
-
-    Returns:
-        (ndarray): Numpy array containing the frame with the text written
-    """
     return cv.putText(
         frame,
         text,
@@ -88,18 +75,6 @@ def write_text_on_frame(
 def draw_gaze_on_frame(
     frame, gaze_coords, gaze_radius=20, gaze_thickness=4, gaze_color=(0, 0, 255)
 ):
-    """Draws a circle on the frame at the gaze coordinates
-
-    Args:
-        frame (ndarray): Numpy array containing an image with shape (height, width, channels)
-        gaze_coords (tuple): Tuple containing the x,y coordinates of the gaze
-        gaze_radius (int, optional): Radius of the gaze circle. Defaults to 20.
-        gaze_thickness (int, optional): Thickness of the gaze circle. Defaults to 4.
-        gaze_color (tuple, optional): Color of the gaze circle. Defaults to (0, 0, 255).
-
-    Returns:
-        (ndarray): Numpy array containing the frame with the gaze circle drawn
-    """
     return cv.circle(
         frame,
         np.int32(gaze_coords),
@@ -234,7 +209,7 @@ def view_video(
 
 def save_gaze_video(video_path, timestamps_path, gaze_path, save_video_path):
     logger = logging.getLogger(__name__)
-    logger.setLevel(logging.INFO)
+    logger.setLevel(logging.WARNING)
 
     gaze_coordinates = get_gaze_per_frame(
         gaze_file=gaze_path, video_timestamps=timestamps_path
@@ -272,7 +247,7 @@ def save_comparison_video(
     same_frame=False,
 ):
     logger = logging.getLogger(__name__)
-    logger.setLevel(logging.INFO)
+    logger.setLevel(logging.WARNING)
 
     alternative_coords = {
         matcher: get_gaze_per_frame(

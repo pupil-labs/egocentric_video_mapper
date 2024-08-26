@@ -224,6 +224,16 @@ def generate_mapper_kwargs(
     }
     neon_vid_path = Path(neon_timeseries_dir).rglob("*.mp4").__next__()
 
+    alternative_timestamps_path = Path(output_dir, "alternative_camera_timestamps.csv")
+    if not alternative_timestamps_path.exists():
+        alternative_timestamps_path = Path(
+            neon_timeseries_dir, "alternative_camera_timestamps.csv"
+        )
+    if not alternative_timestamps_path.exists():
+        raise FileNotFoundError(
+            f"Alternative camera timestamps file not found, please make sure the file exists either in the output directory ({output_dir}) or in the Neon timeseries directory ({neon_timeseries_dir})"
+        )
+
     optic_flow_output_dir = Path(output_dir, "optic_flow")
     method = "lk" if optical_flow_method.lower() == "lucas-kanade" else "farneback"
     mapper_kwargs = {
@@ -232,7 +242,7 @@ def generate_mapper_kwargs(
         "neon_timestamps": Path(neon_timeseries_dir, "world_timestamps.csv"),
         "neon_opticflow_csv": Path(optic_flow_output_dir, f"neon_{method}_of.csv"),
         "alternative_video_path": alternative_vid_path,
-        "alternative_timestamps": Path(output_dir, "alternative_camera_timestamps.csv"),
+        "alternative_timestamps": alternative_timestamps_path,
         "alternative_opticflow_csv": Path(
             optic_flow_output_dir, f"alternative_{method}_of.csv"
         ),
@@ -250,14 +260,13 @@ def generate_comparison_video_kwargs(
     alternative_vid_path,
     mapped_gaze_path,
     output_dir,
-    image_matcher_choice,
 ):
     alternative_gaze_dict = {"Alternative Egocentric View": Path(mapped_gaze_path)}
     neon_vid_path = Path(neon_timeseries_dir).rglob("*.mp4").__next__()
 
     rendered_video_path = Path(
         output_dir,
-        f"rendered_videos/neon_comparison_{Path(mapped_gaze_path).parent}.mp4",
+        f"rendered_videos/neon_comparison_{Path(mapped_gaze_path).parent.stem}.mp4",
     )
     Path(rendered_video_path).parent.mkdir(parents=True, exist_ok=True)
 

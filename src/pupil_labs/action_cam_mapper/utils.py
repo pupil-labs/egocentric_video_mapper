@@ -1,9 +1,10 @@
+import logging
 import os
+from pathlib import Path
+
 import av
 import numpy as np
 import pandas as pd
-from pathlib import Path
-import logging
 from pupil_labs.dynamic_content_on_rim.video.read import get_frame
 
 

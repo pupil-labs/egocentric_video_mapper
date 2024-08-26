@@ -1,12 +1,13 @@
+import logging
+from abc import ABC, abstractmethod
+from dataclasses import asdict, dataclass, field
+from pathlib import Path
+
 import cv2 as cv
 import numpy as np
 import pandas as pd
-from pathlib import Path
-import logging
-from dataclasses import dataclass, asdict, field
-from abc import ABC, abstractmethod
-from utils import VideoHandler
 from tqdm import tqdm
+from utils import VideoHandler
 
 
 @dataclass

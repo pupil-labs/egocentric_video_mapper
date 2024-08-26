@@ -1,18 +1,18 @@
-import sys
+import argparse
 import logging
+import sys
+from pathlib import Path
+
+from gaze_mapper import EgocentricMapper
 from optic_flow import calculate_optic_flow
+from sync_videos import OffsetCalculator
 from utils import (
     VideoHandler,
-    write_timestamp_csv,
-    generate_mapper_kwargs,
     generate_comparison_video_kwargs,
+    generate_mapper_kwargs,
+    write_timestamp_csv,
 )
-from sync_videos import OffsetCalculator
-from gaze_mapper import EgocentricMapper
 from video_renderer import save_comparison_video, save_gaze_video
-from pathlib import Path
-import argparse
-from rich.logging import RichHandler
 
 
 def align_videos(

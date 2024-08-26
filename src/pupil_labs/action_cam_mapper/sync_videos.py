@@ -1,8 +1,9 @@
-import numpy as np
-import scipy.signal
-import scipy.interpolate
 import logging
+
 import matplotlib.pyplot as plt
+import numpy as np
+import scipy.interpolate
+import scipy.signal
 
 
 class OffsetCalculator:

@@ -1,11 +1,12 @@
-from tqdm import tqdm
-import cv2 as cv
 import logging
+from pathlib import Path
+
+import cv2 as cv
 import numpy as np
 import pandas as pd
-from pathlib import Path
-from utils import VideoHandler
 from feature_matcher import ImageMatcherFactory
+from tqdm import tqdm
+from utils import VideoHandler
 
 
 class EgocentricMapper:

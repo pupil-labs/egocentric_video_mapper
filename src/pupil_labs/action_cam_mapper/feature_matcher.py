@@ -211,7 +211,6 @@ class DISKLightGlueImageMatcher(ImageMatcher):
         return correspondences
 
     def _preprocess_image(self, image):
-        # image = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
         scaled_image = cv.resize(
             image, (round(540 * image.shape[1] / image.shape[0]), 540)
         )
@@ -224,7 +223,7 @@ class DISKLightGlueImageMatcher(ImageMatcher):
         return scaled_image, ratio_scaled2image
 
 
-class DeDoDe_LightGlueImageMatcher(ImageMatcher):
+class DeDoDeLightGlueImageMatcher(ImageMatcher):
     def __init__(self, num_features=10000, gpu_num=None):
         """
         This class is a wrapper for the LightGlue algorithm with DeDoDe features from Kornia library. It is used to find correspondences between two images. To read about both algorithms, please refer to DeDoDe: Detect, Don't Describe — Describe, Don't Detect for Local Feature Matching (https://github.com/Parskatt/DeDoDe) and to LightGlue: Local Feature Matching at Light Speed (https://github.com/cvg/LightGlue?tab=readme-ov-file)
@@ -349,11 +348,12 @@ class EfficientLoFTRImageMatcher(ImageMatcher):
         try:
             self.image_matcher.load_state_dict(
                 torch.load(
-                    f"{str(Path(__file__).parent)}/efficient_loftr/weights/eloftr_outdoor.ckpt"
+                    Path(__file__).parent
+                    / "efficient_loftr/weights/eloftr_outdoor.ckpt"
                 )["state_dict"]
             )
         except FileNotFoundError:
-            raise ValueError(f"{Path(__file__)} :(")
+            raise FileNotFoundError(f"{Path(__file__)} :(")
         self.image_matcher = reparameter(self.image_matcher)
         self.image_matcher = self.image_matcher.eval().to(self.device)
 

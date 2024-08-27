@@ -24,7 +24,28 @@ class ImageMatcher(ABC):
     def get_correspondences(
         self, src_image, dst_image, src_patch_corners=None, dst_patch_corners=None
     ):
-        return
+        """Get correspondences between source and destination images. If patch corners are provided, the correspondences are only calculated in the region delimited by them.
+
+        Args:
+            src_image (ndarray): Source image.
+            dst_image (ndarray): Destination image.
+            src_patch_corners (ndarray, optional): Array, of shape (4,2), containing the corner coordinates of the region of interest in the image for match searching. If None is given, the whole image is used in the match search. Defaults to None.
+            dst_patch_corners (ndarray, optional):  Array, of shape (4,2), containing the corner coordinates of the region of interest in the image for match searching. If None is given, the whole image is used in the match search. Defaults to None.
+
+        """
+        src_image = (
+            self._get_image_patch(src_image, src_patch_corners)
+            if src_patch_corners is not None
+            else src_image.copy()
+        )
+
+        dst_image = (
+            self._get_image_patch(dst_image, dst_patch_corners)
+            if dst_patch_corners is not None
+            else dst_image.copy()
+        )
+
+        return src_image, dst_image
 
     def _get_image_patch(self, image, patch_corners):
         x_min, y_min = min(patch_corners[:, 0]), min(patch_corners[:, 1])
@@ -53,20 +74,11 @@ class LOFTRImageMatcher(ImageMatcher):
     def get_correspondences(
         self, src_image, dst_image, src_patch_corners=None, dst_patch_corners=None
     ):
-        dst_image = (
-            self._get_image_patch(dst_image, dst_patch_corners)
-            if dst_patch_corners is not None
-            else dst_image.copy()
-        )
-        dst_tensor, dst_scaled2original = self._preprocess_image(dst_image)
-
-        src_image = (
-            self._get_image_patch(src_image, src_patch_corners)
-            if src_patch_corners is not None
-            else src_image.copy()
+        src_image, dst_image = super().get_correspondences(
+            src_image, dst_image, src_patch_corners, dst_patch_corners
         )
         src_tensor, src_scaled2original = self._preprocess_image(src_image)
-
+        dst_tensor, dst_scaled2original = self._preprocess_image(dst_image)
         input_dict = {
             "image0": src_tensor.to(self.device),
             "image1": dst_tensor.to(self.device),
@@ -107,7 +119,7 @@ class LOFTRImageMatcher(ImageMatcher):
         return scaled_image, ratio_scaled2image
 
 
-class DISK_LightGlueImageMatcher(ImageMatcher):
+class DISKLightGlueImageMatcher(ImageMatcher):
     def __init__(self, num_features=None, gpu_num=None):
         """
         This class is a wrapper for the LightGlue algorithm with DISK features from Kornia library. It is used to find correspondences between two images. To read about both algorithms, please refer to DISK: Learning local features with policy gradient (https://github.com/cvlab-epfl/disk) and to LightGlue: Local Feature Matching at Light Speed (https://github.com/cvg/LightGlue?tab=readme-ov-file)
@@ -407,11 +419,11 @@ class ImageMatcherFactory:
     def get_matcher(self, image_matcher, image_matcher_parameters):
         if image_matcher.lower() == "loftr":
             return LOFTRImageMatcher(**image_matcher_parameters)
-        if image_matcher.lower() == "disk_lightglue":
-            return DISK_LightGlueImageMatcher(**image_matcher_parameters)
-        if image_matcher.lower() == "efficient_loftr":
+        elif image_matcher.lower() == "disk_lightglue":
+            return DISKLightGlueImageMatcher(**image_matcher_parameters)
+        elif image_matcher.lower() == "efficient_loftr":
             return EfficientLoFTRImageMatcher(**image_matcher_parameters)
-        if image_matcher.lower() == "dedode_lightglue":
+        elif image_matcher.lower() == "dedode_lightglue":
             return DeDoDe_LightGlueImageMatcher(**image_matcher_parameters)
         else:
-            raise ValueError("Invalid image matcher")
+            raise ValueError("Invalid image matcher", image_matcher)

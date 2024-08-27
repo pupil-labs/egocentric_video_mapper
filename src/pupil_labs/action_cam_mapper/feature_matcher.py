@@ -140,20 +140,10 @@ class DISKLightGlueImageMatcher(ImageMatcher):
     def get_correspondences(
         self, src_image, dst_image, src_patch_corners=None, dst_patch_corners=None
     ):
-        dst_image = (
-            self._get_image_patch(dst_image, dst_patch_corners)
-            if dst_patch_corners is not None
-            else dst_image.copy()
+        src_image, dst_image = super().get_correspondences(
+            src_image, dst_image, src_patch_corners, dst_patch_corners
         )
-        dst_tensor, dst_scaled2original = self._preprocess_image(
-            dst_image.copy()
-        )  # 1xcxhxw
-
-        src_image = (
-            self._get_image_patch(src_image, src_patch_corners)
-            if src_patch_corners is not None
-            else src_image.copy()
-        )
+        dst_tensor, dst_scaled2original = self._preprocess_image(dst_image)  # 1xCxHxW
         src_tensor, src_scaled2original = self._preprocess_image(src_image)
 
         with torch.inference_mode():
@@ -246,20 +236,10 @@ class DeDoDeLightGlueImageMatcher(ImageMatcher):
     def get_correspondences(
         self, src_image, dst_image, src_patch_corners=None, dst_patch_corners=None
     ):
-        dst_image = (
-            self._get_image_patch(dst_image, dst_patch_corners)
-            if dst_patch_corners is not None
-            else dst_image.copy()
+        src_image, dst_image = super().get_correspondences(
+            src_image, dst_image, src_patch_corners, dst_patch_corners
         )
-        dst_tensor, dst_scaled2original = self._preprocess_image(
-            dst_image.copy()
-        )  # 1xcxhxw
-
-        src_image = (
-            self._get_image_patch(src_image, src_patch_corners)
-            if src_patch_corners is not None
-            else src_image.copy()
-        )
+        dst_tensor, dst_scaled2original = self._preprocess_image(dst_image)  # 1xcxhxw
         src_tensor, src_scaled2original = self._preprocess_image(src_image)
 
         with torch.inference_mode():
@@ -317,7 +297,6 @@ class DeDoDeLightGlueImageMatcher(ImageMatcher):
         return correspondences
 
     def _preprocess_image(self, image):
-        # image = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
         scaled_image = cv.resize(
             image, (round(540 * image.shape[1] / image.shape[0]), 540)
         )
@@ -360,18 +339,10 @@ class EfficientLoFTRImageMatcher(ImageMatcher):
     def get_correspondences(
         self, src_image, dst_image, src_patch_corners=None, dst_patch_corners=None
     ):
-        dst_image = (
-            self._get_image_patch(dst_image, dst_patch_corners)
-            if dst_patch_corners is not None
-            else dst_image.copy()
+        src_image, dst_image = super().get_correspondences(
+            src_image, dst_image, src_patch_corners, dst_patch_corners
         )
         dst_tensor, dst_scaled2original = self._preprocess_image(dst_image)
-
-        src_image = (
-            self._get_image_patch(src_image, src_patch_corners)
-            if src_patch_corners is not None
-            else src_image.copy()
-        )
         src_tensor, src_scaled2original = self._preprocess_image(src_image)
         batch = {
             "image0": src_tensor.to(self.device),
@@ -424,6 +395,6 @@ class ImageMatcherFactory:
         elif image_matcher.lower() == "efficient_loftr":
             return EfficientLoFTRImageMatcher(**image_matcher_parameters)
         elif image_matcher.lower() == "dedode_lightglue":
-            return DeDoDe_LightGlueImageMatcher(**image_matcher_parameters)
+            return DeDoDeLightGlueImageMatcher(**image_matcher_parameters)
         else:
             raise ValueError("Invalid image matcher", image_matcher)

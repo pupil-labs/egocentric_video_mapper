@@ -19,6 +19,7 @@ class ImageMatcher(ABC):
             self.device = torch.device(
                 f"cuda:{gpu_num}" if torch.cuda.is_available() else "cpu"
             )
+        self.transform = transforms.Compose([transforms.ToTensor()])
 
     @abstractmethod
     def get_correspondences(
@@ -33,19 +34,7 @@ class ImageMatcher(ABC):
             dst_patch_corners (ndarray, optional):  Array, of shape (4,2), containing the corner coordinates of the region of interest in the image for match searching. If None is given, the whole image is used in the match search. Defaults to None.
 
         """
-        src_image = (
-            self._get_image_patch(src_image, src_patch_corners)
-            if src_patch_corners is not None
-            else src_image.copy()
-        )
-
-        dst_image = (
-            self._get_image_patch(dst_image, dst_patch_corners)
-            if dst_patch_corners is not None
-            else dst_image.copy()
-        )
-
-        return src_image, dst_image
+        return
 
     def _get_image_patch(self, image, patch_corners):
         x_min, y_min = min(patch_corners[:, 0]), min(patch_corners[:, 1])
@@ -58,6 +47,27 @@ class ImageMatcher(ABC):
         correspondences["keypoints1"] = correspondences["keypoints1"] * dst_ratio
         return correspondences
 
+    def _preprocess_image(self, image, patch_corners, gray_scale=True):
+        image = (
+            self._get_image_patch(image, patch_corners)
+            if patch_corners is not None
+            else image.copy()
+        )
+
+        if gray_scale:
+            image = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
+
+        scaled_image = cv.resize(
+            image, (image.shape[1] // 60 * 32, image.shape[0] // 60 * 32)
+        )
+        ratio_scaled2image = (
+            image.shape[1] / scaled_image.shape[1],
+            image.shape[0] / scaled_image.shape[0],
+        )
+        scaled_image = self.transform(scaled_image)
+        scaled_image = torch.unsqueeze(scaled_image, dim=0)
+        return scaled_image, ratio_scaled2image
+
 
 class LOFTRImageMatcher(ImageMatcher):
     def __init__(self, location, gpu_num=None):
@@ -69,16 +79,17 @@ class LOFTRImageMatcher(ImageMatcher):
         """
         super().__init__(gpu_num)
         self.image_matcher = kornia.feature.LoFTR(pretrained=location).to(self.device)
-        self.transform = transforms.Compose([transforms.ToTensor()])
 
     def get_correspondences(
         self, src_image, dst_image, src_patch_corners=None, dst_patch_corners=None
     ):
-        src_image, dst_image = super().get_correspondences(
-            src_image, dst_image, src_patch_corners, dst_patch_corners
+        src_tensor, src_scaled2original = self._preprocess_image(
+            src_image, src_patch_corners
         )
-        src_tensor, src_scaled2original = self._preprocess_image(src_image)
-        dst_tensor, dst_scaled2original = self._preprocess_image(dst_image)
+        dst_tensor, dst_scaled2original = self._preprocess_image(
+            dst_image, dst_patch_corners
+        )
+
         input_dict = {
             "image0": src_tensor.to(self.device),
             "image1": dst_tensor.to(self.device),
@@ -105,19 +116,6 @@ class LOFTRImageMatcher(ImageMatcher):
 
         return correspondences
 
-    def _preprocess_image(self, image):
-        image = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
-        scaled_image = cv.resize(
-            image, (round(540 * image.shape[1] / image.shape[0]), 540)
-        )
-        ratio_scaled2image = (
-            image.shape[1] / scaled_image.shape[1],
-            image.shape[0] / scaled_image.shape[0],
-        )
-        scaled_image = self.transform(scaled_image)
-        scaled_image = torch.unsqueeze(scaled_image, dim=0)
-        return scaled_image, ratio_scaled2image
-
 
 class DISKLightGlueImageMatcher(ImageMatcher):
     def __init__(self, num_features=None, gpu_num=None):
@@ -135,16 +133,16 @@ class DISKLightGlueImageMatcher(ImageMatcher):
         )
         self.feature_matcher = kornia.feature.LightGlue("disk").eval().to(self.device)
 
-        self.transform = transforms.Compose([transforms.ToTensor()])
-
     def get_correspondences(
         self, src_image, dst_image, src_patch_corners=None, dst_patch_corners=None
     ):
-        src_image, dst_image = super().get_correspondences(
-            src_image, dst_image, src_patch_corners, dst_patch_corners
+        src_tensor, src_scaled2original = self._preprocess_image(
+            src_image, src_patch_corners, gray_scale=False
         )
-        dst_tensor, dst_scaled2original = self._preprocess_image(dst_image)  # 1xCxHxW
-        src_tensor, src_scaled2original = self._preprocess_image(src_image)
+
+        dst_tensor, dst_scaled2original = self._preprocess_image(
+            dst_image, dst_patch_corners, gray_scale=False
+        )  # 1xCxHxW
 
         with torch.inference_mode():
             src_tensor = src_tensor.to(self.device)
@@ -200,18 +198,6 @@ class DISKLightGlueImageMatcher(ImageMatcher):
 
         return correspondences
 
-    def _preprocess_image(self, image):
-        scaled_image = cv.resize(
-            image, (round(540 * image.shape[1] / image.shape[0]), 540)
-        )
-        ratio_scaled2image = (
-            image.shape[1] / scaled_image.shape[1],
-            image.shape[0] / scaled_image.shape[0],
-        )
-        scaled_image = self.transform(scaled_image)
-        scaled_image = torch.unsqueeze(scaled_image, dim=0)
-        return scaled_image, ratio_scaled2image
-
 
 class DeDoDeLightGlueImageMatcher(ImageMatcher):
     def __init__(self, num_features=10000, gpu_num=None):
@@ -231,16 +217,15 @@ class DeDoDeLightGlueImageMatcher(ImageMatcher):
             kornia.feature.LightGlue("dedodeb").eval().to(self.device)
         )
 
-        self.transform = transforms.Compose([transforms.ToTensor()])
-
     def get_correspondences(
         self, src_image, dst_image, src_patch_corners=None, dst_patch_corners=None
     ):
-        src_image, dst_image = super().get_correspondences(
-            src_image, dst_image, src_patch_corners, dst_patch_corners
+        src_tensor, src_scaled2original = self._preprocess_image(
+            src_image, src_patch_corners, gray_scale=False
         )
-        dst_tensor, dst_scaled2original = self._preprocess_image(dst_image)  # 1xcxhxw
-        src_tensor, src_scaled2original = self._preprocess_image(src_image)
+        dst_tensor, dst_scaled2original = self._preprocess_image(
+            dst_image, dst_patch_corners, gray_scale=False
+        )  # 1xcxhxw
 
         with torch.inference_mode():
             src_tensor = src_tensor.to(self.device)
@@ -296,18 +281,6 @@ class DeDoDeLightGlueImageMatcher(ImageMatcher):
 
         return correspondences
 
-    def _preprocess_image(self, image):
-        scaled_image = cv.resize(
-            image, (round(540 * image.shape[1] / image.shape[0]), 540)
-        )
-        ratio_scaled2image = (
-            image.shape[1] / scaled_image.shape[1],
-            image.shape[0] / scaled_image.shape[0],
-        )
-        scaled_image = self.transform(scaled_image)
-        scaled_image = torch.unsqueeze(scaled_image, dim=0)
-        return scaled_image, ratio_scaled2image
-
 
 class EfficientLoFTRImageMatcher(ImageMatcher):
     def __init__(self, model_type="opt", gpu_num=None):
@@ -339,11 +312,13 @@ class EfficientLoFTRImageMatcher(ImageMatcher):
     def get_correspondences(
         self, src_image, dst_image, src_patch_corners=None, dst_patch_corners=None
     ):
-        src_image, dst_image = super().get_correspondences(
-            src_image, dst_image, src_patch_corners, dst_patch_corners
+        src_tensor, src_scaled2original = self._preprocess_image(
+            src_image, src_patch_corners
         )
-        dst_tensor, dst_scaled2original = self._preprocess_image(dst_image)
-        src_tensor, src_scaled2original = self._preprocess_image(src_image)
+        dst_tensor, dst_scaled2original = self._preprocess_image(
+            dst_image, dst_patch_corners
+        )
+
         batch = {
             "image0": src_tensor.to(self.device),
             "image1": dst_tensor.to(self.device),
@@ -372,21 +347,8 @@ class EfficientLoFTRImageMatcher(ImageMatcher):
 
         return correspondences
 
-    def _preprocess_image(self, image):
-        image = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
-        scaled_image = cv.resize(
-            image, (image.shape[1] // 56 * 32, image.shape[0] // 56 * 32)
-        )
-        ratio_scaled2image = (
-            image.shape[1] / scaled_image.shape[1],
-            image.shape[0] / scaled_image.shape[0],
-        )
-        scaled_image = torch.from_numpy(scaled_image)[None][None] / 255.0
 
-        return scaled_image, ratio_scaled2image
-
-
-class ImageMatcherFactory:
+class ImageMatcherFactory:  # refactor into fx
     def get_matcher(self, image_matcher, image_matcher_parameters):
         if image_matcher.lower() == "loftr":
             return LOFTRImageMatcher(**image_matcher_parameters)

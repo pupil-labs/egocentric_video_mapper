@@ -180,16 +180,21 @@ class OpticFlowCalculatorLK(OpticFlowCalculatorBase):
         first_frame = cv.cvtColor(first_frame, cv.COLOR_BGR2GRAY)
         second_frame = cv.cvtColor(second_frame, cv.COLOR_BGR2GRAY)
 
-        p1, status, err = cv.calcOpticalFlowPyrLK(
+        pts_second_frame, _, _ = cv.calcOpticalFlowPyrLK(
             first_frame, second_frame, self.grid_points, None, **self.lk_params
         )
-        p0r, status, err = cv.calcOpticalFlowPyrLK(
-            second_frame, first_frame, p1, None, **self.lk_params
+        backtrack_pts_first_frame, _, _ = cv.calcOpticalFlowPyrLK(
+            second_frame, first_frame, pts_second_frame, None, **self.lk_params
         )
 
-        chebyshev_distance = abs(self.grid_points - p0r).reshape(-1, 2).max(-1)
+        chebyshev_distance = (
+            abs(self.grid_points - backtrack_pts_first_frame).reshape(-1, 2).max(-1)
+        )
         status = chebyshev_distance < 1.0
-        good_new_points, good_old_points = p1[status], self.grid_points[status]
+        good_new_points, good_old_points = (
+            pts_second_frame[status],
+            self.grid_points[status],
+        )
 
         displacement = good_new_points.reshape(-1, 2) - good_old_points.reshape(-1, 2)
 

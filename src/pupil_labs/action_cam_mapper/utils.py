@@ -124,9 +124,9 @@ def write_timestamp_csv(neon_timeseries_dir, aligned_relative_ts, output_file_di
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.WARNING)
 
-    output_file_path = Path(
-        neon_timeseries_dir if output_file_dir is None else output_file_dir,
-        "alternative_camera_timestamps.csv",
+    output_file_path = (
+        Path(output_file_dir or neon_timeseries_dir)
+        / "alternative_camera_timestamps.csv"
     )
 
     neon_timestamps_path = Path(neon_timeseries_dir, "world_timestamps.csv")

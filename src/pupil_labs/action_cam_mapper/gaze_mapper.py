@@ -57,9 +57,7 @@ class EgocentricMapper:
             ],
             dtype=np.float32,
         )
-        self.output_dir = (
-            output_dir if output_dir is not None else Path(neon_video_path).parent
-        )
+        self.output_dir = Path(output_dir or Path(neon_video_path).parent)
 
         self.corresponding_alt_ts_idx = self._get_corresponding_timestamps_index(
             self.alt_vid_ts["timestamp [ns]"].values,
@@ -87,7 +85,7 @@ class EgocentricMapper:
     ):
         """
         Args:
-            saving_path (str, optional): Saving path for the mapped gaze, in format /path/to/action_gaze.csv, if None is given it saves the mapped gaze in the parent directory of the neon video. Defaults to None.
+            saving_path (str, optional): Saving path for the mapped gaze, in format /path/to/alternative_gaze.csv, if None is given it saves the mapped gaze as 'alternative_camera_gaze.csv' in the output directory specified in the initialization of the object. Defaults to None.
             refresh_time_thrshld (int, optional): Maximum allowed time elapsed, in seconds, since the last computation of image correspondences. If set to None this threshold is not enforced. Defaults to None.
             opticf_thrshld (int, optional): Maximum allowed cummulative optic flow, in pixels, since the last computation of image correspondences. If set to None this threshold is not enforced Defaults to None.
             gaze_change_thrshld (int, optional): Maximum allowed neon gaze change, in  pixels, since the last computation of image correspondences. If set to None this threshold is not enforced. Defaults to None.
@@ -206,9 +204,10 @@ class EgocentricMapper:
 
             gazes_since_refresh += 1
 
-        if saving_path is None:
-            saving_path = Path(self.output_dir, "alternative_camera_gaze.csv")
-        Path(saving_path).parent.mkdir(parents=True, exist_ok=True)
+        saving_path = Path(
+            saving_path or self.output_dir / "alternative_camera_gaze.csv"
+        )
+        saving_path.parent.mkdir(parents=True, exist_ok=True)
 
         self.alt_gaze.to_csv(saving_path, index=False)
         print(f"Gaze mapped to alternative camera saved at {saving_path}")
@@ -313,7 +312,7 @@ class EgocentricMapper:
                 )
             refresh_needed = True
 
-        if refresh_thrshld is not None and gazes_since_refresh == refresh_thrshld:
+        if refresh_thrshld is not None and gazes_since_refresh >= refresh_thrshld:
             if self.verbose:
                 print(f"Refreshing transformation after {refresh_thrshld} gazes")
             self.logger.info(f"Refreshing transformation after {refresh_thrshld} gazes")
@@ -413,8 +412,8 @@ class EgocentricMapper:
             point_to_be_transformed - correspondences["keypoints0"], axis=1
         )
 
-        diferent_radii = range(50, self.patch_size + 50, 50)
-        for radius in diferent_radii:
+        different_radii = range(50, self.patch_size + 50, 50)
+        for radius in different_radii:
             kept_idx = distance_to_point < radius
             if np.count_nonzero(kept_idx) > 100:
                 self.logger.info(

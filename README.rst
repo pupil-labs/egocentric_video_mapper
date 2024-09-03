@@ -40,24 +40,28 @@ Clone the repository by running the following command from the terminal:
 
 Create a virtual environment for the project:
 ::
-   python3.10 -m venv venv
-   source venv/bin/activate
+   python3.10 -m venv egocentric_mapper
+   source egocentric_mapper/bin/activate
 
 Or if you are using conda:
 ::
-   conda create -n venv python=3.10
-   conda activate venv
+   conda create -n egocentric_mapper python=3.10
+   conda activate egocentric_mapper
 
 Go to the project directory:
 ::
    cd /path/to/your/directory/action_cam_mapper
    pip install -e .
 
-Download the directory with model weights for `EfficientLOFTR <https://github.com/zju3dv/EfficientLoFTR/>`__ from the following `download link <https://drive.google.com/drive/folders/1GOw6iVqsB-f1vmG6rNmdCcgwfB4VZ7_Q>`__  and place it in the src/pupil_labs/action_cam_mapper/efficient_loftr  directory.
+Download the directory with model weights for `EfficientLOFTR <https://github.com/zju3dv/EfficientLoFTR/>`__ from the following `download link <https://drive.google.com/drive/folders/1GOw6iVqsB-f1vmG6rNmdCcgwfB4VZ7_Q>`__  and place it in the src/pupil_labs/action_cam_mapper/efficient_loftr directory.
 
 Run it!
 ============
-To run the project, you can open 'PL-mapper.ipynb' in a Jupyter Notebook and run the cells.
+To run the project, you can open 'PL-mapper.ipynb' in the IDE of your choice and run the cells. Conversely, you can run the following command from the terminal and it will open the notebook in your browser ready to run the cells:
+
+::
+   jupyter notebook --port=9000 src/pupil_labs/action_cam_mapper/PL-mapper.ipynb
+
 
 Support
 ========

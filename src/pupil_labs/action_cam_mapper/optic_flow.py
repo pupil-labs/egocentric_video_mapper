@@ -30,22 +30,24 @@ class OpticFlowCalculatorBase(ABC):
         )
         self.logger = logging.getLogger(__name__)
 
-    def process_video(self, start_time=None, end_time=None, output_file_path=None):
+    def process_video(
+        self, start_time_sec=None, end_time_sec=None, output_file_path=None
+    ):
         """Method to calculate the optic flow in a defined video interval. Optic flow is calculated between consecutive frames in the interval.
         Args:
-            start_time (float): start time of the video interval to calculate the optic flow signal. Defaults to None. If not specified, the start time is the first timestamp in the video.
-            end_time (float): end time of the video interval to calculate the optic flow signal. Defaults to None. If not specified, the end time is the last timestamp in the video.
+            start_time_sec (float): start time in seconds of the video interval to calculate the optic flow signal. Defaults to None. If not specified, the start time is the first timestamp in the video.
+            end_time_sec (float): end time in seconds of the video interval to calculate the optic flow signal. Defaults to None. If not specified, the end time is the last timestamp in the video.
             output_file_path (str, optional): Path to a csv file to store the calculated optic flow signal. Defaults to None. If not specified, the signal is not saved to a file.
 
         Returns:
             DataFrame: Pandas DataFrame containing the calculated optic flow signal. Has the following columns: 'start', 'end', 'dx', 'dy', 'angle'.
         """
-        if start_time is None:
-            start_time = self.video_handler.timestamps[0]
-        if end_time is None:
-            end_time = self.video_handler.timestamps[-1]
+        if start_time_sec is None:
+            start_time_sec = self.video_handler.timestamps[0]
+        if end_time_sec is None:
+            end_time_sec = self.video_handler.timestamps[-1]
         selected_timestamps = self.video_handler.get_timestamps_in_interval(
-            start_time, end_time
+            start_time_sec, end_time_sec
         )
 
         requested_optic_flow = dict(start=[], end=[], dx=[], dy=[], angle=[])
@@ -57,9 +59,8 @@ class OpticFlowCalculatorBase(ABC):
             if self._is_optic_flow_already_calculated(ts1, ts2):
                 flow = self._retrieve_optic_flow(ts1, ts2)
             else:
-                frame1, frame2 = self.video_handler.get_frame_by_timestamp(
-                    ts1
-                ), self.video_handler.get_frame_by_timestamp(ts2)
+                frame1 = self.video_handler.get_frame_by_timestamp(ts1)
+                frame2 = self.video_handler.get_frame_by_timestamp(ts2)
                 flow = self._calculate_optical_flow_between_frames(
                     frame1, frame2, ts1, ts2
                 )
@@ -84,9 +85,9 @@ class OpticFlowCalculatorBase(ABC):
             & (self.results["end"] == end_timestamp)
         ].empty
 
-    def _retrieve_optic_flow(self, ts1, ts2):
+    def _retrieve_optic_flow(self, ts_start, ts_end):
         optic_flow_query = self.results[
-            (self.results["start"] == ts1) & (self.results["end"] == ts2)
+            (self.results["start"] == ts_start) & (self.results["end"] == ts_end)
         ].drop(columns=["angle"])
         return (
             OpticFlowResult(**optic_flow_query.to_dict(orient="records")[0])
@@ -97,7 +98,18 @@ class OpticFlowCalculatorBase(ABC):
     @abstractmethod
     def _calculate_optical_flow_between_frames(
         self, first_frame, second_frame, first_ts=None, second_ts=None
-    ) -> dict:
+    ) -> OpticFlowResult:
+        """Method to calculate the optic flow between two frames. This method should be implemented by the child class.
+
+        Args:
+            first_frame (ndarray): Image data of the first frame, this frame  is the frame at first_ts.
+            second_frame (ndarray): Image data of the second frame, this frame is the frame at second_ts.
+            first_ts (float, optional): Timestamp in seconds of the first frame. Defaults to None.
+            second_ts (float, optional): Timestamp in seconds of the second frame. Defaults to None.
+
+        Returns:
+            OpticFlowResult: Object containing the optic flow data between the two frames.
+        """
         return
 
     def write_to_csv(self, output_file_path, optic_flow_data=None):

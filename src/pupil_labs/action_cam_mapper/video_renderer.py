@@ -58,8 +58,27 @@ def pad_images_height(image_1, image_2):
 
 
 def write_text_on_frame(
-    frame, text, position, font=FONT_CHOICE, color=(0, 0, 0), thickness=4, size=3
+    frame,
+    text,
+    position,
+    font=FONT_CHOICE,
+    color=(0, 0, 0),
+    thickness=4,
+    size=3,
+    extra_thickness=2,
 ):
+    """This function writes text on a frame with an outline in a complementary color"""
+    complementary_color = (255 - color[0], 255 - color[1], 255 - color[2])
+    frame = cv.putText(
+        frame,
+        text,
+        position,
+        font,
+        size,
+        complementary_color,
+        thickness + extra_thickness,
+        cv.LINE_AA,
+    )
     return cv.putText(
         frame,
         text,
@@ -117,11 +136,9 @@ def view_video(
     alternative_time -= neon_timestamps["timestamp [ns]"].values[0]
     alternative_time /= 1e9
 
-    neon_gaze_dict = {
-        t: gaze for t, gaze in zip(neon_video.timestamps, neon_gaze_coords_list)
-    }
+    neon_gaze_dict = dict(zip(neon_video.timestamps, neon_gaze_coords_list))
     alternative_gaze_dict = {
-        matcher: {t: gaze for t, gaze in zip(alternative_time, coords_list)}
+        matcher: dict(zip(alternative_time, coords_list))
         for matcher, coords_list in alternative_coords.items()
     }
 
@@ -132,29 +149,20 @@ def view_video(
     video_height = video_height // len(alternative_gaze_dict.keys())
     video_width = video_width // len(alternative_gaze_dict.keys())
 
-    for i, t in enumerate(alternative_time):
-        neon_frame = neon_video.get_frame_by_timestamp(t)
+    for alt_ts_idx, alt_ts in enumerate(alternative_time):
+        neon_frame = neon_video.get_frame_by_timestamp(alt_ts)
         neon_frame = cv.cvtColor(neon_frame, cv.COLOR_BGR2RGB)
 
         neon_frame_gaze = draw_gaze_on_frame(
-            neon_frame.copy(), neon_gaze_dict[neon_video.get_closest_timestamp(t)[0]]
-        )
-        neon_frame_gaze = write_text_on_frame(
-            neon_frame_gaze, "Neon Scene Camera", (50, 80), thickness=5
+            neon_frame.copy(),
+            neon_gaze_dict[neon_video.get_closest_timestamp(alt_ts)[0]],
         )
         neon_frame_gaze = write_text_on_frame(
             neon_frame_gaze, "Neon Scene Camera", (50, 80), color=(255, 255, 255)
         )
         neon_frame_gaze = write_text_on_frame(
             neon_frame_gaze,
-            f"Time: {neon_video.get_closest_timestamp(t)[0]:.3f}",
-            (50, 150),
-            size=2,
-            thickness=5,
-        )
-        neon_frame_gaze = write_text_on_frame(
-            neon_frame_gaze,
-            f"Time: {neon_video.get_closest_timestamp(t)[0]:.3f}",
+            f"Time: {neon_video.get_closest_timestamp(alt_ts)[0]:.3f}",
             (50, 150),
             size=2,
             color=(255, 255, 255),
@@ -163,28 +171,22 @@ def view_video(
         all_frames = neon_frame_gaze.copy()
 
         alternative_frame = alternative_video.get_frame_by_timestamp(
-            alternative_video.timestamps[i]
+            alternative_video.timestamps[alt_ts_idx]
         )
         alternative_frame = cv.cvtColor(alternative_frame, cv.COLOR_RGB2BGR)
 
         for matcher in alternative_gaze_dict.keys():
-            gaze = alternative_gaze_dict[matcher][t]
+            gaze = alternative_gaze_dict[matcher][alt_ts]
             alternative_frame_gaze = draw_gaze_on_frame(
                 alternative_frame.copy(),
                 gaze,
             )
             alternative_frame_gaze = write_text_on_frame(
-                alternative_frame_gaze, matcher, (50, 80), thickness=5
-            )
-            alternative_frame_gaze = write_text_on_frame(
                 alternative_frame_gaze, matcher, (50, 80), color=(255, 255, 255)
             )
             alternative_frame_gaze = write_text_on_frame(
-                alternative_frame_gaze, f"Time: {t:.3f}", (50, 150), size=2, thickness=5
-            )
-            alternative_frame_gaze = write_text_on_frame(
                 alternative_frame_gaze,
-                f"Time: {t:.3f}",
+                f"Time: {alt_ts:.3f}",
                 (50, 150),
                 size=2,
                 color=(255, 255, 255),
@@ -272,11 +274,9 @@ def save_comparison_video(
     alternative_time = alternative_timestamps["timestamp [ns]"].values
     alternative_time -= neon_timestamps["timestamp [ns]"].values[0]
     alternative_time /= 1e9
-    neon_gaze_dict = {
-        t: gaze for t, gaze in zip(neon_video.timestamps, neon_gaze_coords_list)
-    }
+    neon_gaze_dict = dict(zip(neon_video.timestamps, neon_gaze_coords_list))
     alternative_gaze_dict = {
-        matcher: {t: gaze for t, gaze in zip(alternative_time, coords_list)}
+        matcher: dict(zip(alternative_time, coords_list))
         for matcher, coords_list in alternative_coords.items()
     }
 
@@ -308,17 +308,12 @@ def save_comparison_video(
         (0, 255, 255),
     ]
 
-    for i, t in enumerate(tqdm(alternative_time)):
-        neon_frame = neon_video.get_frame_by_timestamp(t)
+    for alt_ts_idx, alt_ts in enumerate(tqdm(alternative_time)):
+        neon_frame = neon_video.get_frame_by_timestamp(alt_ts)
         neon_frame = cv.cvtColor(neon_frame, cv.COLOR_BGR2RGB)
         neon_frame_gaze = draw_gaze_on_frame(
-            neon_frame.copy(), neon_gaze_dict[neon_video.get_closest_timestamp(t)[0]]
-        )
-        neon_frame_gaze = write_text_on_frame(
-            neon_frame_gaze,
-            "Neon Scene Camera",
-            (50, 80),
-            thickness=5,
+            neon_frame.copy(),
+            neon_gaze_dict[neon_video.get_closest_timestamp(alt_ts)[0]],
         )
         neon_frame_gaze = write_text_on_frame(
             neon_frame_gaze,
@@ -328,14 +323,7 @@ def save_comparison_video(
         )
         neon_frame_gaze = write_text_on_frame(
             neon_frame_gaze,
-            f"Time: {neon_video.get_closest_timestamp(t)[0]:.3f}s",
-            (50, 150),
-            size=2,
-            thickness=5,
-        )
-        neon_frame_gaze = write_text_on_frame(
-            neon_frame_gaze,
-            f"Time: {neon_video.get_closest_timestamp(t)[0]:.3f}s",
+            f"Time: {neon_video.get_closest_timestamp(alt_ts)[0]:.3f}s",
             (50, 150),
             size=2,
             color=(255, 255, 255),
@@ -343,12 +331,12 @@ def save_comparison_video(
         all_frames = neon_frame_gaze.copy()
 
         alternative_frame = alternative_video.get_frame_by_timestamp(
-            alternative_video.timestamps[i]
+            alternative_video.timestamps[alt_ts_idx]
         )
         alternative_frame = cv.cvtColor(alternative_frame, cv.COLOR_RGB2BGR)
 
         for i_matcher, matcher in enumerate(alternative_gaze_dict.keys()):
-            gaze = alternative_gaze_dict[matcher][t]
+            gaze = alternative_gaze_dict[matcher][alt_ts]
             if same_frame:
                 alternative_frame = draw_gaze_on_frame(
                     alternative_frame, gaze, gaze_color=gaze_color_list[i_matcher]
@@ -363,26 +351,13 @@ def save_comparison_video(
             else:
                 alternative_frame = write_text_on_frame(
                     alternative_frame,
-                    f"Time: {t:.3f}s",
-                    (50, 150),
-                    size=2,
-                    thickness=5,
-                )
-                alternative_frame = write_text_on_frame(
-                    alternative_frame,
-                    f"Time: {t:.3f}s",
+                    f"Time: {alt_ts:.3f}s",
                     (50, 150),
                     size=2,
                     color=(255, 255, 255),
                 )
                 alternative_frame_gaze = draw_gaze_on_frame(
                     alternative_frame.copy(), gaze
-                )
-                alternative_frame_gaze = write_text_on_frame(
-                    alternative_frame_gaze,
-                    matcher,
-                    (50, 80),
-                    thickness=5,
                 )
                 alternative_frame_gaze = write_text_on_frame(
                     alternative_frame_gaze,
@@ -399,14 +374,7 @@ def save_comparison_video(
         if same_frame:
             alternative_frame = write_text_on_frame(
                 alternative_frame,
-                f"Time: {t:.3f}s",
-                (50, 50 + 70 * len(alternative_gaze_dict.keys())),
-                size=2,
-                thickness=5,
-            )
-            alternative_frame = write_text_on_frame(
-                alternative_frame,
-                f"Time: {t:.3f}s",
+                f"Time: {alt_ts:.3f}s",
                 (50, 50 + 70 * len(alternative_gaze_dict.keys())),
                 size=2,
                 color=(255, 255, 255),
@@ -415,7 +383,7 @@ def save_comparison_video(
                 all_frames, alternative_frame
             )
             all_frames = np.concatenate([all_frames, alternative_frame], axis=1)
-        all_frames = cv.resize(all_frames, (video_width, video_height))  # w,h
+        all_frames = cv.resize(all_frames, (video_width, video_height))
         video.write(all_frames.astype(np.uint8))
     video.release()
     logger.info(f"Video saved at {save_video_path}")
@@ -496,10 +464,10 @@ if __name__ == "__main__":
             neon_video_path=neon_vid_path,
             neon_worldtimestamps_path=neon_timestamps,
             neon_gaze_path=neon_gaze_path,
-            save_video_path=f"/users/sof/action_map_experiments/alpha_min_rendering/{video_sel}/same_Neon_Action_{exp}.mp4",
+            save_video_path=f"/users/sof/action_map_experiments/alpha_min_rendering/{video_sel}/same2_Neon_Action_{exp}.mp4",
             same_frame=True,
         )
-
+        break
         # view_video(
         #     alternative_video_path=action_vid_path,
         #     alternative_timestamps_path=action_timestamps,

@@ -133,7 +133,7 @@ class OpticFlowCalculatorBase(ABC):
         )
         optic_flow_data.sort_values(by=["start"], inplace=True, ignore_index=True)
         optic_flow_data.to_csv(output_file_path, index=False)
-        print(f"Optic flow data saved to {output_file_path}")
+        self.logger.info(f"Optic flow data saved to {output_file_path}")
 
 
 class OpticFlowCalculatorLK(OpticFlowCalculatorBase):

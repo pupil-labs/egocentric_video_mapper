@@ -348,15 +348,14 @@ class EfficientLoFTRImageMatcher(ImageMatcher):
         return correspondences
 
 
-class ImageMatcherFactory:  # refactor into fx
-    def get_matcher(self, image_matcher, image_matcher_parameters):
-        if image_matcher.lower() == "loftr":
-            return LOFTRImageMatcher(**image_matcher_parameters)
-        elif image_matcher.lower() == "disk_lightglue":
-            return DISKLightGlueImageMatcher(**image_matcher_parameters)
-        elif image_matcher.lower() == "efficient_loftr":
-            return EfficientLoFTRImageMatcher(**image_matcher_parameters)
-        elif image_matcher.lower() == "dedode_lightglue":
-            return DeDoDeLightGlueImageMatcher(**image_matcher_parameters)
-        else:
-            raise ValueError("Invalid image matcher", image_matcher)
+def get_matcher(image_matcher, image_matcher_parameters):
+    if image_matcher.lower() == "loftr":
+        return LOFTRImageMatcher(**image_matcher_parameters)
+    elif image_matcher.lower() == "disk_lightglue":
+        return DISKLightGlueImageMatcher(**image_matcher_parameters)
+    elif image_matcher.lower() == "efficient_loftr":
+        return EfficientLoFTRImageMatcher(**image_matcher_parameters)
+    elif image_matcher.lower() == "dedode_lightglue":
+        return DeDoDeLightGlueImageMatcher(**image_matcher_parameters)
+    else:
+        raise ValueError("Invalid image matcher", image_matcher)

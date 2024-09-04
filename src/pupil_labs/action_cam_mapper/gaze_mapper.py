@@ -4,12 +4,11 @@ from pathlib import Path
 import cv2 as cv
 import numpy as np
 import pandas as pd
-from feature_matcher import ImageMatcherFactory
+from feature_matcher import get_matcher
 from tqdm import tqdm
 from utils import VideoHandler
 
 
-# logger=logging.getLogger(__name__)
 class EgocentricMapper:
     def __init__(
         self,
@@ -28,6 +27,7 @@ class EgocentricMapper:
         alternative_fov=[145, 76],
         logging_level="ERROR",
     ):
+
         self.neon_video = VideoHandler(neon_video_path)
         self.alt_video = VideoHandler(alternative_video_path)
 
@@ -44,9 +44,7 @@ class EgocentricMapper:
         self.neon_gaze = pd.read_csv(neon_gaze_csv)  # @ 200Hz
         self.alt_gaze = self._create_alternative_gaze_df()
 
-        self.image_matcher = ImageMatcherFactory().get_matcher(
-            image_matcher, image_matcher_parameters
-        )
+        self.image_matcher = get_matcher(image_matcher, image_matcher_parameters)
 
         self.output_dir = Path(output_dir or Path(neon_video_path).parent)
 

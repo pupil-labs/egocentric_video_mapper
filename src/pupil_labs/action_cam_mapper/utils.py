@@ -214,7 +214,7 @@ def generate_mapper_kwargs(
     alternative_vid_path,
     output_dir,
     matcher_choice,
-    optical_flow_method,
+    optic_flow_method,
 ):
     matcher_choice = matcher_choice.lower()
     image_matcher_parameters = {
@@ -236,7 +236,7 @@ def generate_mapper_kwargs(
         )
 
     optic_flow_output_dir = Path(output_dir, "optic_flow")
-    method = "lk" if optical_flow_method.lower() == "lucas-kanade" else "farneback"
+    method = "lk" if optic_flow_method.lower() == "lucas-kanade" else "farneback"
     mapper_kwargs = {
         "neon_gaze_csv": Path(neon_timeseries_dir, "gaze.csv"),
         "neon_video_path": neon_vid_path,

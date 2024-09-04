@@ -61,7 +61,7 @@ class OpticFlowCalculatorBase(ABC):
             else:
                 frame1 = self.video_handler.get_frame_by_timestamp(ts1)
                 frame2 = self.video_handler.get_frame_by_timestamp(ts2)
-                flow = self._calculate_optical_flow_between_frames(
+                flow = self._calculate_optic_flow_between_frames(
                     frame1, frame2, ts1, ts2
                 )
             for key, value in asdict(flow).items():
@@ -96,7 +96,7 @@ class OpticFlowCalculatorBase(ABC):
         )
 
     @abstractmethod
-    def _calculate_optical_flow_between_frames(
+    def _calculate_optic_flow_between_frames(
         self, first_frame, second_frame, first_ts=None, second_ts=None
     ) -> OpticFlowResult:
         """Method to calculate the optic flow between two frames. This method should be implemented by the child class.
@@ -174,7 +174,7 @@ class OpticFlowCalculatorLK(OpticFlowCalculatorBase):
         )
         return point_coordinates.reshape(-1, 1, 2).astype(np.float32)
 
-    def _calculate_optical_flow_between_frames(
+    def _calculate_optic_flow_between_frames(
         self, first_frame, second_frame, first_ts=None, second_ts=None
     ):
         first_frame = cv.cvtColor(first_frame, cv.COLOR_BGR2GRAY)
@@ -230,18 +230,18 @@ class OpticFlowCalculatorFarneback(OpticFlowCalculatorBase):
         super().__init__(video_path)
         self.farneback_params = params
 
-    def _calculate_optical_flow_between_frames(
+    def _calculate_optic_flow_between_frames(
         self, first_frame, second_frame, first_ts=None, second_ts=None
     ):
-        dense_optical_flow = cv.calcOpticalFlowFarneback(
+        dense_optic_flow = cv.calcOpticalFlowFarneback(
             cv.cvtColor(first_frame, cv.COLOR_BGR2GRAY),
             cv.cvtColor(second_frame, cv.COLOR_BGR2GRAY),
             None,
             **self.farneback_params,
         )
 
-        avg_displacement_x = np.mean(dense_optical_flow[:, :, 0])
-        avg_displacement_y = np.mean(dense_optical_flow[:, :, 1])
+        avg_displacement_x = np.mean(dense_optic_flow[:, :, 0])
+        avg_displacement_y = np.mean(dense_optic_flow[:, :, 1])
 
         return OpticFlowResult(
             dx=avg_displacement_x, dy=avg_displacement_y, start=first_ts, end=second_ts
@@ -252,19 +252,19 @@ def calculate_optic_flow(
     neon_timeseries_dir,
     alternative_video_path,
     output_dir,
-    optical_flow_method="farneback",
+    optic_flow_method="farneback",
 ):
     neon_video_path = Path(neon_timeseries_dir).rglob("*.mp4").__next__()
-    optical_flow_method = optical_flow_method.lower()
+    optic_flow_method = optic_flow_method.lower()
     output_dir = Path(output_dir, "optic_flow")
     Path(output_dir).mkdir(parents=True, exist_ok=True)
 
-    if optical_flow_method.lower() == "farneback":
+    if optic_flow_method.lower() == "farneback":
         alternative_of = OpticFlowCalculatorFarneback(video_path=alternative_video_path)
         neon_of = OpticFlowCalculatorFarneback(video_path=neon_video_path)
         method = "farneback"
 
-    elif optical_flow_method.lower() == "lucas-kanade":
+    elif optic_flow_method.lower() == "lucas-kanade":
         alternative_of = OpticFlowCalculatorLK(video_path=alternative_video_path)
         neon_of = OpticFlowCalculatorLK(video_path=neon_video_path)
         method = "lk"

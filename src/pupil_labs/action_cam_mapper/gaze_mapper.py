@@ -27,7 +27,24 @@ class EgocentricMapper:
         alternative_fov=[145, 76],
         logging_level="ERROR",
     ):
+        """Class to map gaze from the Neon scene camera to an alternative camera. The gaze is mapped by calling the map_gaze method which uses correspondences between the two cameras to calculate the gaze transformation.
 
+        Args:
+            neon_gaze_csv (str): Path to the gaze.csv file from the Neon recording. The file should come from the Timeseries Data + Scene Video download from Pupil Cloud.
+            neon_video_path (str): Path to the video recorded by the Neon scene camera. The video comes from the Timeseries Data + Scene Video download from Pupil Cloud.
+            alternative_video_path (str): Path to the video recorded by the alternative camera.
+            neon_timestamps (str): Path to the world_timestamps.csv from the Neon recording. The file should come from the Timeseries Data + Scene Video download from Pupil Cloud.
+            alternative_timestamps (str): Path to the alternative_camera_timestamps.csv from the alternative camera. This file is create by utils.write_timestamp_csv
+            image_matcher (str): Name of the image matcher to be used. For already implemented matcher check the feature_matcher module.
+            image_matcher_parameters (dict): Set of specific parameters for the image matcher. The parameters are passed as a dictionary with the parameter name as the key and the parameter value as the value.
+            neon_opticflow_csv (str, optional): Path to the optic flow pertaining to the Neon scene video. Used for semantic alignment of the gaze signal. If no file is provided no semantic aligment takes place. Defaults to None.
+            alternative_opticflow_csv (str, optional): Path to the optic flow pertaining to the alternative camera video. Used for semantic alignment of the gaze signal. If no file is provided no semantic aligment takes place. Defaults to None.
+            output_dir (str, optional): Path to the directory to store the mapped gaze, if None is given the mapped gaze is saved in the same directory as the neon_gaze_csv. Defaults to None.
+            patch_size (int, optional): Size of the context image window to take around any given gaze. Defaults to 1000.
+            neon_fov (list, optional): Field of view in degrees of the Neon Scene camera (can be 2D or 1D). If 1D, it is assumed that the camera has the same field of view in both axes. If 2D, it is assumed that [fov_x, fov_y]. Defaults to [103, 81].
+            alternative_fov (list, optional): Field of view in degrees of the Neon Scene camera (can be 2D or 1D). If 1D, it is assumed that the camera has the same field of view in both axes. If 2D, it is assumed that [fov_x, fov_y]. Defaults to [145, 76].
+            logging_level (str, optional): Level of logging to be used. Defaults to "ERROR".
+        """
         self.neon_video = VideoHandler(neon_video_path)
         self.alt_video = VideoHandler(alternative_video_path)
 

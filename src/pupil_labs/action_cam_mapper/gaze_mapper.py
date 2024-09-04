@@ -23,7 +23,6 @@ class EgocentricMapper:
         alternative_opticflow_csv=None,
         output_dir=None,
         patch_size=1000,
-        neon_fov=[103, 81],
         alternative_fov=[145, 76],
         logging_level="ERROR",
     ):
@@ -41,7 +40,6 @@ class EgocentricMapper:
             alternative_opticflow_csv (str, optional): Path to the optic flow pertaining to the alternative camera video. Used for semantic alignment of the gaze signal. If no file is provided no semantic aligment takes place. Defaults to None.
             output_dir (str, optional): Path to the directory to store the mapped gaze, if None is given the mapped gaze is saved in the same directory as the neon_gaze_csv. Defaults to None.
             patch_size (int, optional): Size of the context image window to take around any given gaze. Defaults to 1000.
-            neon_fov (list, optional): Field of view in degrees of the Neon Scene camera (can be 2D or 1D). If 1D, it is assumed that the camera has the same field of view in both axes. If 2D, it is assumed that [fov_x, fov_y]. Defaults to [103, 81].
             alternative_fov (list, optional): Field of view in degrees of the Neon Scene camera (can be 2D or 1D). If 1D, it is assumed that the camera has the same field of view in both axes. If 2D, it is assumed that [fov_x, fov_y]. Defaults to [145, 76].
             logging_level (str, optional): Level of logging to be used. Defaults to "ERROR".
         """
@@ -84,8 +82,9 @@ class EgocentricMapper:
             dtype=np.float32,
         )
         self.correspondences = None
-        self.neon_fov = np.asarray(neon_fov)
         self.alt_fov = np.asarray(alternative_fov)
+        # Reported values in Neon documentation https://docs.pupil-labs.com/neon/data-collection/data-streams/#scene-video
+        self.neon_fov = np.asarray([103, 77])
 
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(logging_level)

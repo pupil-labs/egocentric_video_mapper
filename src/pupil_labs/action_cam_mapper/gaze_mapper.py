@@ -26,7 +26,7 @@ class EgocentricMapper:
         patch_size=1000,
         neon_fov=[103, 81],
         alternative_fov=[145, 76],
-        verbose=True,
+        logging_level="ERROR",
     ):
         self.neon_video = VideoHandler(neon_video_path)
         self.alt_video = VideoHandler(alternative_video_path)
@@ -41,22 +41,13 @@ class EgocentricMapper:
         self.neon_opticflow = pd.read_csv(neon_opticflow_csv, dtype=np.float32)
         self.alt_opticflow = pd.read_csv(alternative_opticflow_csv, dtype=np.float32)
 
-        self.neon_gaze = pd.read_csv(neon_gaze_csv)  # <- at 200Hz
+        self.neon_gaze = pd.read_csv(neon_gaze_csv)  # @ 200Hz
         self.alt_gaze = self._create_alternative_gaze_df()
 
         self.image_matcher = ImageMatcherFactory().get_matcher(
             image_matcher, image_matcher_parameters
         )
 
-        self.patch_size = patch_size
-        self.gaze_transformation = np.array(
-            [
-                [self.alt_video.width / self.neon_video.width, 0, 0],
-                [0, self.alt_video.height / self.neon_video.height, 0],
-                [0, 0, 1],
-            ],
-            dtype=np.float32,
-        )
         self.output_dir = Path(output_dir or Path(neon_video_path).parent)
 
         self.corresponding_alt_ts_idx = self._get_corresponding_timestamps_index(
@@ -68,13 +59,21 @@ class EgocentricMapper:
             self.alt_gaze["timestamp [ns]"].values,
         )
 
+        self.patch_size = patch_size
+        self.gaze_transformation = np.array(
+            [
+                [self.alt_video.width / self.neon_video.width, 0, 0],
+                [0, self.alt_video.height / self.neon_video.height, 0],
+                [0, 0, 1],
+            ],
+            dtype=np.float32,
+        )
+        self.correspondences = None
         self.neon_fov = np.asarray(neon_fov)
         self.alt_fov = np.asarray(alternative_fov)
 
-        self.verbose = verbose
-
         self.logger = logging.getLogger(__name__)
-        self.logger.setLevel(logging.ERROR)
+        self.logger.setLevel(logging_level)
 
     def map_gaze(
         self,
@@ -99,7 +98,7 @@ class EgocentricMapper:
         acc_neon_opticflow = 0
         last_gaze = self.neon_gaze.iloc[0][["gaze x [px]", "gaze y [px]"]].values
 
-        for i, gaze_ts in enumerate(
+        for gaze_idx, gaze_ts in enumerate(
             tqdm(
                 self.alt_gaze["timestamp [ns]"].values,
                 desc="Mapping gaze signal",
@@ -112,8 +111,10 @@ class EgocentricMapper:
                 ["gaze x [px]", "gaze y [px]"],
             ].values.reshape(1, 2)
 
-            gaze_rel_ts, neon_rel_ts, alt_rel_ts = self._obtain_relative_ts(gaze_ts, i)
-            self.logger.info(f"({i}) Transforming gaze {gaze_neon} at {gaze_ts}")
+            gaze_rel_ts, neon_rel_ts, alt_rel_ts = self._obtain_relative_ts(
+                gaze_ts, gaze_idx
+            )
+            self.logger.info(f"({gaze_idx}) Transforming gaze {gaze_neon} at {gaze_ts}")
 
             if self._ts_between_video_frames(gaze_ts):
                 gaze_neon = self._move_point_to_video_timestamp(
@@ -124,21 +125,24 @@ class EgocentricMapper:
                 )
 
             # check if new frames need to be retrieved
-            if i == 0 or (
-                self.corresponding_neon_ts_idx[i]
-                != self.corresponding_neon_ts_idx[i - 1]
+            if gaze_idx == 0 or (
+                self.corresponding_neon_ts_idx[gaze_idx]
+                != self.corresponding_neon_ts_idx[gaze_idx - 1]
             ):
-                neon_frame, neon_opticflow = self._step_through_video(i, "neon")
+                neon_frame, neon_opticflow = self._step_through_video(gaze_idx, "neon")
                 acc_neon_opticflow += self._angle_difference_rough(
                     neon_opticflow,
                     self.neon_fov,
                     np.array([self.neon_video.height, self.neon_video.width]),
                 )
 
-            if i == 0 or (
-                self.corresponding_alt_ts_idx[i] != self.corresponding_alt_ts_idx[i - 1]
+            if gaze_idx == 0 or (
+                self.corresponding_alt_ts_idx[gaze_idx]
+                != self.corresponding_alt_ts_idx[gaze_idx - 1]
             ):
-                alt_frame, alt_opticflow = self._step_through_video(i, "alternative")
+                alt_frame, alt_opticflow = self._step_through_video(
+                    gaze_idx, "alternative"
+                )
                 acc_alt_opticflow += self._angle_difference_rough(
                     alt_opticflow,
                     self.alt_fov,
@@ -151,7 +155,8 @@ class EgocentricMapper:
                 gaze_alt_camera = gaze_neon.copy()
 
             else:
-                if i == 0 or self._check_if_refresh_needed(
+                refresh_needed = self._check_if_refresh_needed(
+                    gaze_idx,
                     self._angle_difference_rough(
                         last_gaze - gaze_neon,
                         self.neon_fov,
@@ -163,7 +168,8 @@ class EgocentricMapper:
                     refresh_time_thrshld,
                     optic_flow_thrshld,
                     gaze_change_thrshld,
-                ):
+                )
+                if refresh_needed:
                     patch_corners = self._get_patch_corners(
                         self.patch_size, gaze_neon, neon_frame.shape
                     )
@@ -196,7 +202,7 @@ class EgocentricMapper:
                     gaze_rel_ts - self.alt2neon_offset,
                 )
 
-            self.logger.info(f"({i}) Gaze mapped to {gaze_alt_camera}")
+            self.logger.info(f"({gaze_idx}) Gaze mapped to {gaze_alt_camera}")
             self.alt_gaze.loc[
                 self.alt_gaze["timestamp [ns]"] == gaze_ts,
                 ["gaze x [px]", "gaze y [px]"],
@@ -210,7 +216,7 @@ class EgocentricMapper:
         saving_path.parent.mkdir(parents=True, exist_ok=True)
 
         self.alt_gaze.to_csv(saving_path, index=False)
-        print(f"Gaze mapped to alternative camera saved at {saving_path}")
+        self.logger.info(f"Gaze mapped to alternative camera saved at {saving_path}")
         return saving_path
 
     def _create_alternative_gaze_df(self):
@@ -263,19 +269,20 @@ class EgocentricMapper:
 
     def _check_if_refresh_needed(
         self,
+        gaze_index,
         angle_between_gazes,
         gazes_since_refresh,
         accumulated_neon_opticflow,
         accumulated_alt_opticflow,
         refresh_thrshld=None,
-        opticf_threshold=None,
+        opticflow_thrshld=None,
         gaze_change_thrshld=None,
     ):
-        refresh_needed = False
-
-        if not hasattr(self, "correspondences"):
+        if gaze_index == 0:
+            return True
+        if self.correspondences is None:
             self.logger.info("No correspondences found, refreshing transformation")
-            refresh_needed = True
+            return True
 
         if (
             gaze_change_thrshld is not None
@@ -284,48 +291,38 @@ class EgocentricMapper:
             self.logger.info(
                 f"Large gaze jump detected ({angle_between_gazes}deg), refreshing transformation"
             )
-            refresh_needed = True
+            return True
 
         if (
-            opticf_threshold is not None
-            and accumulated_alt_opticflow > opticf_threshold
+            opticflow_thrshld is not None
+            and accumulated_alt_opticflow > opticflow_thrshld
         ):
             self.logger.info(
                 f"Optic flow threshold reached (alternative camera at {np.linalg.norm(accumulated_alt_opticflow)}), refreshing transformation"
             )
-            if self.verbose:
-                print(
-                    f"Optic flow threshold reached (alternative camera at {np.linalg.norm(accumulated_alt_opticflow)}), refreshing transformation"
-                )
-            refresh_needed = True
+            return True
 
         if (
-            opticf_threshold is not None
-            and accumulated_neon_opticflow > opticf_threshold
+            opticflow_thrshld is not None
+            and accumulated_neon_opticflow > opticflow_thrshld
         ):
             self.logger.info(
                 f"Optic flow threshold reached (neon at {np.linalg.norm(accumulated_neon_opticflow)}), refreshing transformation"
             )
-            if self.verbose:
-                print(
-                    f"Optic flow threshold reached (neon at {np.linalg.norm(accumulated_neon_opticflow)}), refreshing transformation"
-                )
-            refresh_needed = True
+            return True
 
         if refresh_thrshld is not None and gazes_since_refresh >= refresh_thrshld:
-            if self.verbose:
-                print(f"Refreshing transformation after {refresh_thrshld} gazes")
             self.logger.info(f"Refreshing transformation after {refresh_thrshld} gazes")
-            refresh_needed = True
+            return True
 
         if (
             refresh_thrshld is None
             and gaze_change_thrshld is None
-            and opticf_threshold is None
+            and opticflow_thrshld is None
         ):
-            refresh_needed = True
+            return True
 
-        return refresh_needed
+        return False
 
     def _obtain_relative_ts(self, gaze_ts, gaze_index):
         gaze_relative_ts = (
@@ -340,10 +337,9 @@ class EgocentricMapper:
         return gaze_relative_ts, neon_relative_ts, action_relative_ts
 
     def _step_through_video(self, i, video_type):
-        if self.verbose:
-            print(
-                f"{i} Step through video {video_type}(neon={self.corresponding_neon_ts_idx[i]}, alternative_video={self.corresponding_alt_ts_idx[i]})"
-            )
+        self.logger.info(
+            f"{i} Step through video {video_type}(neon={self.corresponding_neon_ts_idx[i]}, alternative_video={self.corresponding_alt_ts_idx[i]})"
+        )
         relative_ts = (
             self.neon_video.timestamps[self.corresponding_neon_ts_idx[i]]
             if video_type == "neon"
@@ -367,15 +363,14 @@ class EgocentricMapper:
         else:
             opticflow = np.array([0, 0])
 
-        if hasattr(self, "correspondences"):
+        if self.correspondences is not None:
             selected_kp = "keypoints0" if video_type == "neon" else "keypoints1"
             prev_ts = (
                 self.neon_video.timestamps[self.corresponding_neon_ts_idx[i - 1]]
                 if video_type == "neon"
                 else self.alt_video.timestamps[self.corresponding_alt_ts_idx[i - 1]]
             )
-            if self.verbose:
-                print(f"Moving {selected_kp} to {relative_ts}")
+            self.logger.debug(f"Moving {selected_kp} to {relative_ts}")
             self.correspondences[selected_kp] = self._move_point_to_video_timestamp(
                 self.correspondences[selected_kp],
                 prev_ts,
@@ -478,21 +473,23 @@ class EgocentricMapper:
             opticflow_displacement_between_frames = opticflow.loc[
                 opticflow["end"] == opticflow_timestamp, ["dx", "dy"]
             ].values
-            dx_dy_dt = opticflow_displacement_between_frames / np.diff(
+            dt = np.diff(
                 opticflow.loc[
                     opticflow["end"] == opticflow_timestamp, ["start", "end"]
                 ].values
             )
+            dx_dy_dt = opticflow_displacement_between_frames / dt
         elif time_difference < 0:
             # The point is in the future, so it needs to be moved to the 'past', against the optic flow between the optic flow timestamp and the next timestamp
             opticflow_displacement_between_frames = opticflow.loc[
                 opticflow["start"] == opticflow_timestamp, ["dx", "dy"]
             ].values
-            dx_dy_dt = opticflow_displacement_between_frames / np.diff(
+            dt = np.diff(
                 opticflow.loc[
                     opticflow["start"] == opticflow_timestamp, ["start", "end"]
                 ].values
             )
+            dx_dy_dt = opticflow_displacement_between_frames / dt
         dx_dy = dx_dy_dt * time_difference
         return point_coordinates + dx_dy
 

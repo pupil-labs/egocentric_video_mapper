@@ -253,7 +253,6 @@ class EgocentricMapper:
         )
 
         alt_gaze_dataframe[
-            :,
             [
                 "section id",
                 "recording id",
@@ -261,7 +260,7 @@ class EgocentricMapper:
                 "worn",
                 "fixation id",
                 "blink id",
-            ],
+            ]
         ] = self.neon_gaze[
             [
                 "section id",

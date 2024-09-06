@@ -12,8 +12,8 @@ class VideoHandler:
     def __init__(self, video_path):
         self.path = video_path
         self.video_container = av.open(self.path)
-        self._timestamps = self.get_timestamps()
-        self.set_properties()
+        self._timestamps = self._get_timestamps()
+        self._set_properties()
 
     @property
     def height(self):
@@ -51,7 +51,7 @@ class VideoHandler:
         self._read_frames += 1
         return frame
 
-    def get_timestamps(self):
+    def _get_timestamps(self):
         container = av.open(self.path)
         video = container.streams.video[0]
         av_timestamps = [
@@ -63,7 +63,7 @@ class VideoHandler:
         av_timestamps.sort()
         return np.asarray(av_timestamps, dtype=np.float32)
 
-    def set_properties(self):
+    def _set_properties(self):
         container = av.open(self.path)
         video = container.streams.video[0]
         self._height = video.height
@@ -206,7 +206,6 @@ def write_timestamp_csv(neon_timeseries_dir, aligned_relative_ts, output_file_di
     alternative_timestamps_df.to_csv(output_file_path, index=False)
     mssg = f"Timestamps for alternative camera recording saved at {output_file_path}"
     logger.info(mssg)
-    print(mssg)
 
 
 def generate_mapper_kwargs(
@@ -223,7 +222,7 @@ def generate_mapper_kwargs(
         "disk_lightglue": {"num_features": 2048, "gpu_num": 0},
         "dedode_lightglue": {"num_features": 5000, "gpu_num": 0},
     }
-    neon_vid_path = Path(neon_timeseries_dir).rglob("*.mp4").__next__()
+    neon_vid_path = next(Path(neon_timeseries_dir).rglob("*.mp4"))
 
     alternative_timestamps_path = Path(output_dir, "alternative_camera_timestamps.csv")
     if not alternative_timestamps_path.exists():
@@ -232,7 +231,8 @@ def generate_mapper_kwargs(
         )
     if not alternative_timestamps_path.exists():
         raise FileNotFoundError(
-            f"Alternative camera timestamps file not found, please make sure the file exists either in the output directory ({output_dir}) or in the Neon timeseries directory ({neon_timeseries_dir})"
+            f"Alternative camera timestamps file not found."
+            f"Please make sure the file exists either in the output directory ({output_dir}) or in the Neon timeseries directory ({neon_timeseries_dir})"
         )
 
     optic_flow_output_dir = Path(output_dir, "optic_flow")

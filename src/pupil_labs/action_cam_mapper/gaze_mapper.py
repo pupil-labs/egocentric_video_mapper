@@ -46,11 +46,11 @@ class EgocentricMapper:
         self.neon_video = VideoHandler(neon_video_path)
         self.alt_video = VideoHandler(alternative_video_path)
 
-        self.neon_vid_ts = pd.read_csv(neon_timestamps)
-        self.alt_vid_ts = pd.read_csv(alternative_timestamps)
+        self.neon_vid_ts_nanosec = pd.read_csv(neon_timestamps)
+        self.alt_vid_ts_nanosec = pd.read_csv(alternative_timestamps)
         self.alt2neon_offset = (
-            self.alt_vid_ts["timestamp [ns]"].values[0]
-            - self.neon_vid_ts["timestamp [ns]"].values[0]
+            self.alt_vid_ts_nanosec["timestamp [ns]"].values[0]
+            - self.neon_vid_ts_nanosec["timestamp [ns]"].values[0]
         ) / 1e9
 
         self.neon_opticflow = pd.read_csv(neon_opticflow_csv, dtype=np.float32)
@@ -64,11 +64,11 @@ class EgocentricMapper:
         self.output_dir = Path(output_dir or Path(neon_video_path).parent)
 
         self.corresponding_alt_ts_idx = self._get_corresponding_timestamps_index(
-            self.alt_vid_ts["timestamp [ns]"].values,
+            self.alt_vid_ts_nanosec["timestamp [ns]"].values,
             self.alt_gaze["timestamp [ns]"].values,
         )
         self.corresponding_neon_ts_idx = self._get_corresponding_timestamps_index(
-            self.neon_vid_ts["timestamp [ns]"].values,
+            self.neon_vid_ts_nanosec["timestamp [ns]"].values,
             self.alt_gaze["timestamp [ns]"].values,
         )
 
@@ -106,11 +106,17 @@ class EgocentricMapper:
         refresh_time_thrshld = (
             refresh_time_thrshld * 200 if refresh_time_thrshld is not None else None
         )
-
+        neon_gaze_df = pd.DataFrame(
+            {
+                ("timestamp_nanosec", ""): self.neon_gaze["timestamp [ns]"],
+                ("gaze", "x"): self.neon_gaze["gaze x [px]"],
+                ("gaze", "y"): self.neon_gaze["gaze y [px]"],
+            }
+        )
         gazes_since_refresh = 0
         acc_alt_opticflow = 0
         acc_neon_opticflow = 0
-        last_gaze = self.neon_gaze.iloc[0][["gaze x [px]", "gaze y [px]"]].values
+        last_gaze = neon_gaze_df.gaze.values[0]
 
         for gaze_idx, gaze_ts in enumerate(
             tqdm(
@@ -120,10 +126,9 @@ class EgocentricMapper:
             )
         ):
 
-            gaze_neon = self.neon_gaze.loc[
-                self.neon_gaze["timestamp [ns]"] == gaze_ts,
-                ["gaze x [px]", "gaze y [px]"],
-            ].values.reshape(1, 2)
+            gaze_neon = neon_gaze_df[
+                neon_gaze_df.timestamp_nanosec == gaze_ts
+            ].gaze.values.reshape(1, 2)
 
             gaze_rel_ts, neon_rel_ts, alt_rel_ts = self._obtain_relative_ts(
                 gaze_ts, gaze_idx
@@ -190,7 +195,7 @@ class EgocentricMapper:
                     self.correspondences = self.image_matcher.get_correspondences(
                         neon_frame, alt_frame, patch_corners
                     )
-                    self.logger.warning(
+                    self.logger.info(
                         f"Matcher was called at {gaze_ts} ({len(self.correspondences['keypoints0'])} correspondences)"
                     )
                     gazes_since_refresh = 0
@@ -271,11 +276,11 @@ class EgocentricMapper:
         alt_gaze_dataframe = alt_gaze_dataframe[
             (
                 alt_gaze_dataframe["timestamp [ns]"]
-                >= self.alt_vid_ts["timestamp [ns]"].values[0]
+                >= self.alt_vid_ts_nanosec["timestamp [ns]"].values[0]
             )
             & (
                 alt_gaze_dataframe["timestamp [ns]"]
-                <= self.alt_vid_ts["timestamp [ns]"].values[-1]
+                <= self.alt_vid_ts_nanosec["timestamp [ns]"].values[-1]
             )
         ]
 
@@ -340,7 +345,7 @@ class EgocentricMapper:
 
     def _obtain_relative_ts(self, gaze_ts, gaze_index):
         gaze_relative_ts = (
-            gaze_ts - self.neon_vid_ts["timestamp [ns]"].values[0]
+            gaze_ts - self.neon_vid_ts_nanosec["timestamp [ns]"].values[0]
         ) / 1e9
         neon_relative_ts = self.neon_video.timestamps[
             self.corresponding_neon_ts_idx[gaze_index]
@@ -396,13 +401,13 @@ class EgocentricMapper:
     def _ts_between_video_frames(self, timestamp):
         return (
             max(
-                self.neon_vid_ts["timestamp [ns]"].values[0],
-                self.alt_vid_ts["timestamp [ns]"].values[0],
+                self.neon_vid_ts_nanosec["timestamp [ns]"].values[0],
+                self.alt_vid_ts_nanosec["timestamp [ns]"].values[0],
             )
             < timestamp
             < min(
-                self.neon_vid_ts["timestamp [ns]"].values[-1],
-                self.alt_vid_ts["timestamp [ns]"].values[-1],
+                self.neon_vid_ts_nanosec["timestamp [ns]"].values[-1],
+                self.alt_vid_ts_nanosec["timestamp [ns]"].values[-1],
             )
         )
 
@@ -480,7 +485,7 @@ class EgocentricMapper:
             ndarray: New coordinates of the point after being moved
         """
         time_difference = opticflow_timestamp - point_timestamp
-        if time_difference == 0:
+        if np.abs(time_difference) < 1e-6:
             return point_coordinates
         elif time_difference > 0:
             # The point is in the past, so it needs to be moved to the 'future'

@@ -9,6 +9,9 @@ from utils import VideoHandler
 
 FONT_CHOICE = cv.FONT_HERSHEY_SIMPLEX
 
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.WARNING)
+
 
 def get_gaze_per_frame(gaze_file, video_timestamps):
     """This function search for the gaze coordinates with the closest world timestamp to the video world timestamps and returns an array of coordinates for every frame in the video
@@ -210,9 +213,6 @@ def view_video(
 
 
 def save_gaze_video(video_path, timestamps_path, gaze_path, save_video_path):
-    logger = logging.getLogger(__name__)
-    logger.setLevel(logging.WARNING)
-
     gaze_coordinates = get_gaze_per_frame(
         gaze_file=gaze_path, video_timestamps=timestamps_path
     )
@@ -235,7 +235,6 @@ def save_gaze_video(video_path, timestamps_path, gaze_path, save_video_path):
         gaze_video.write(frame.astype(np.uint8))
     gaze_video.release()
     logger.info(f"Video saved at {save_video_path}")
-    print(f"Video saved at {save_video_path}")
 
 
 def save_comparison_video(
@@ -248,9 +247,6 @@ def save_comparison_video(
     save_video_path,
     same_frame=False,
 ):
-    logger = logging.getLogger(__name__)
-    logger.setLevel(logging.WARNING)
-
     alternative_coords = {
         matcher: get_gaze_per_frame(
             gaze_file=path, video_timestamps=alternative_timestamps_path
@@ -387,92 +383,3 @@ def save_comparison_video(
         video.write(all_frames.astype(np.uint8))
     video.release()
     logger.info(f"Video saved at {save_video_path}")
-    print(f"Video saved at {save_video_path}")
-
-
-if __name__ == "__main__":
-    videoss = [
-        "office1",
-        # "street_very_inclined",
-        # "street_slight_inclined",
-    ]
-    datset_choice = "mini_dataset"
-    datset_exp = "minidataset_hoover"
-    exp = "gz"
-    if exp == "of":
-        dir_exp = "opticalflow_ts"
-    elif exp == "rf":
-        dir_exp = "refreshtime_ts"
-    else:
-        dir_exp = "gaze_ts"
-
-    for video_sel in videoss:
-
-        neon_timestamps = list(
-            Path(f"/users/sof/{datset_choice}/{video_sel}").rglob(
-                "*/world_timestamps.csv"
-            )
-        )[0]
-        neon_gaze_path = list(
-            Path(f"/users/sof/{datset_choice}/{video_sel}").rglob("*/gaze.csv")
-        )[0]
-        neon_vid_path = list(neon_gaze_path.parent.rglob("*.mp4"))[0]
-
-        action_vid_path = list(
-            Path(f"/users/sof/{datset_choice}/{video_sel}").rglob("AVun*.mp4")
-        )[0]
-        action_timestamps = list(
-            Path(f"/users/sof/{datset_choice}/{video_sel}").rglob(
-                "*/action_camera_timestamps.csv"
-            )
-        )[0]
-
-        gazes_dict = {}
-
-        gazes_dict["Insta360 GO3 Camera"] = (
-            f"/users/sof/action_map_experiments/{datset_exp}/{video_sel}/baseline/no_thresh/mapped_gaze/efficient_loftr/action_gaze_lk.csv"
-        )
-
-        if exp == "rf":
-            gazes_dict[f"Action Cam (ELOFTR {exp}0.5)"] = (
-                f"/users/sof/action_map_experiments/{datset_exp}/{video_sel}/{dir_exp}/0.5/mapped_gaze/efficient_loftr/action_gaze_lk.csv"
-            )
-            gazes_dict[f"Action Cam (ELOFTR {exp}0.25)"] = (
-                f"/users/sof/action_map_experiments/{datset_exp}/{video_sel}/{dir_exp}/0.25/mapped_gaze/efficient_loftr/action_gaze_lk.csv"
-            )
-            gazes_dict[f"Action Cam (ELOFTR {exp}0.05)"] = (
-                f"/users/sof/action_map_experiments/{datset_exp}/{video_sel}/{dir_exp}/0.05/mapped_gaze/efficient_loftr/action_gaze_lk.csv"
-            )
-        else:
-            gazes_dict[f"Action Cam (ELOFTR {exp}1)"] = (
-                f"/users/sof/action_map_experiments/{datset_exp}/{video_sel}/{dir_exp}/1/mapped_gaze/efficient_loftr/action_gaze_lk.csv"
-            )
-            gazes_dict[f"Action Cam (ELOFTR {exp}5)"] = (
-                f"/users/sof/action_map_experiments/{datset_exp}/{video_sel}/{dir_exp}/5/mapped_gaze/efficient_loftr/action_gaze_lk.csv"
-            )
-            gazes_dict[f"Action Cam (ELOFTR {exp}10)"] = (
-                f"/users/sof/action_map_experiments/{datset_exp}/{video_sel}/{dir_exp}/10/mapped_gaze/efficient_loftr/action_gaze_lk.csv"
-            )
-            gazes_dict[f"Action Cam (ELOFTR {exp}20)"] = (
-                f"/users/sof/action_map_experiments/{datset_exp}/{video_sel}/{dir_exp}/20/mapped_gaze/efficient_loftr/action_gaze_lk.csv"
-            )
-
-        save_comparison_video(
-            alternative_video_path=action_vid_path,
-            alternative_timestamps_path=action_timestamps,
-            alternative_gaze_paths_dict=gazes_dict,
-            neon_video_path=neon_vid_path,
-            neon_worldtimestamps_path=neon_timestamps,
-            neon_gaze_path=neon_gaze_path,
-            save_video_path=f"/users/sof/action_map_experiments/alpha_min_rendering/{video_sel}/same2_Neon_Action_{exp}.mp4",
-            same_frame=True,
-        )
-        break
-        # view_video(
-        #     alternative_video_path=action_vid_path,
-        #     alternative_timestamps_path=action_timestamps,
-        #     alternative_gaze_paths_dict=gazes_dict,
-        #     neon_video_path=neon_vid_path,
-        #     neon_worldtimestamps_path=neon_timestamps,
-        #     neon_gaze_path=neon_gaze_path,
-        # )

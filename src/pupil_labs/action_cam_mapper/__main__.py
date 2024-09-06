@@ -48,17 +48,17 @@ def main(args=None):
 
         parser.add_argument(
             "--neon_timeseries_dir",
-            type=str,
+            type=Path,
             help="Path to the uncompressed Neon 'Timeseries Data + Scene Video' directory.",
         )
 
         parser.add_argument(
             "--alternative_vid_path",
-            type=str,
+            type=Path,
             help="Alternative egocentric video path.",
         )
 
-        parser.add_argument("--output_dir", type=str, help="Output directory.")
+        parser.add_argument("--output_dir", type=Path, help="Output directory.")
 
         parser.add_argument(
             "--optic_flow_choice",
@@ -81,13 +81,13 @@ def main(args=None):
         )
         parser.add_argument(
             "--optic_flow_thrshld",
-            type=int,
+            type=float,
             help="Optic Flow threshold in deg.",
             default=None,
         )
         parser.add_argument(
             "--gaze_change_thrshld",
-            type=int,
+            type=float,
             help="Gaze change threshold in deg.",
             default=None,
         )
@@ -107,6 +107,16 @@ def main(args=None):
         )
 
         args = parser.parse_args()
+
+    args.gaze_change_thrshld = (
+        None if args.gaze_change_thrshld == 0 else args.gaze_change_thrshld
+    )
+    args.refresh_time_thrshld = (
+        None if args.refresh_time_thrshld == 0 else args.refresh_time_thrshld
+    )
+    args.optic_flow_thrshld = (
+        None if args.optic_flow_thrshld == 0 else args.optic_flow_thrshld
+    )
 
     Path(args.output_dir).mkdir(parents=True, exist_ok=True)
 
@@ -142,7 +152,7 @@ def main(args=None):
         neon_timeseries_dir=args.neon_timeseries_dir,
         alternative_video_path=args.alternative_vid_path,
         output_dir=args.output_dir,
-        optical_flow_method=args.optic_flow_choice,
+        optic_flow_method=args.optic_flow_choice,
     )
     logger.info("Optic flow for both videos calculated")
 
@@ -159,7 +169,7 @@ def main(args=None):
         alternative_vid_path=args.alternative_vid_path,
         output_dir=args.output_dir,
         matcher_choice=args.matcher,
-        optical_flow_method=args.optic_flow_choice,
+        optic_flow_method=args.optic_flow_choice,
     )
     mapper = EgocentricMapper(**mapper_kwargs)
     gaze_csv_path = mapper.map_gaze(
@@ -196,5 +206,5 @@ def main(args=None):
 
 if __name__ == "__main__":
     # minimal example
-    # python -m pupil_labs.action_cam_mapper --neon_timeseries_dir /home/rohit/Downloads/2022_02_24_15_00_00 --alternative_vid_path /home/rohit/Downloads/2022_02_24_15_00_00/2022_02_24_15_00_00.mp4 --output_dir /home/rohit/Downloads/2022_02_24_15_00_00/output --optic_flow_choice Lucas-Kanade --matcher Efficient_LOFTR --refresh_time_thrshld 0.5 --optic_flow_thrshld 0.5 --gaze_change_thrshld 0.5 --render_comparison_video True --render_video True
+    # python -m pupil_labs.action_cam_mapper --neon_timeseries_dir /users/sof/dataset_bias/office_inclined/2024-08-08_12-16-21-7c7a51ef --alternative_vid_path /users/sof/dataset_bias/office_inclined/AVun_20240808_133620_477.mp4 --output_dir /users/sof/action_map_experiments/outout --optic_flow_choice Lucas-Kanade --matcher Efficient_LOFTR --refresh_time_thrshld 0.5 --optic_flow_thrshld 0.5 --gaze_change_thrshld 0.5 --render_comparison_video True --render_video True
     main()

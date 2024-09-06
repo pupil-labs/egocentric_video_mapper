@@ -138,7 +138,7 @@ def write_timestamp_csv(neon_timeseries_dir, aligned_relative_ts, output_file_di
     neon_timestamps_df = pd.read_csv(neon_timestamps_path)
     columns_for_mapping = neon_timestamps_df.columns
 
-    alternative_cam_timestamps = np.int64(aligned_relative_ts / 1e-9)
+    alternative_cam_timestamps = np.int64(aligned_relative_ts * 1e9)
     alternative_cam_timestamps += neon_timestamps_df["timestamp [ns]"].iloc[0]
 
     alternative_timestamps_df = pd.DataFrame.from_dict(
@@ -236,22 +236,25 @@ def generate_mapper_kwargs(
         )
 
     optic_flow_output_dir = Path(output_dir, "optic_flow")
-    method = "lk" if optic_flow_method.lower() == "lucas-kanade" else "farneback"
     mapper_kwargs = {
         "neon_gaze_csv": Path(neon_timeseries_dir, "gaze.csv"),
         "neon_video_path": neon_vid_path,
         "neon_timestamps": Path(neon_timeseries_dir, "world_timestamps.csv"),
-        "neon_opticflow_csv": Path(optic_flow_output_dir, f"neon_{method}_of.csv"),
+        "neon_opticflow_csv": Path(
+            optic_flow_output_dir, f"neon_{optic_flow_method.lower()}.csv"
+        ),
         "alternative_video_path": alternative_vid_path,
         "alternative_timestamps": alternative_timestamps_path,
         "alternative_opticflow_csv": Path(
-            optic_flow_output_dir, f"alternative_{method}_of.csv"
+            optic_flow_output_dir, f"alternative_{optic_flow_method.lower()}.csv"
         ),
         "image_matcher": matcher_choice,
         "image_matcher_parameters": image_matcher_parameters[matcher_choice],
-        "output_dir": Path(output_dir, f"mapped_gaze/{matcher_choice}_{method}"),
+        "output_dir": Path(
+            output_dir, f"mapped_gaze/{matcher_choice}_{optic_flow_method.lower()}"
+        ),
         "patch_size": 1000,
-        "verbose": False,
+        "logging_level": "ERROR",
     }
     return mapper_kwargs
 
@@ -263,8 +266,7 @@ def generate_comparison_video_kwargs(
     output_dir,
 ):
     alternative_gaze_dict = {"Alternative Egocentric View": Path(mapped_gaze_path)}
-    neon_vid_path = Path(neon_timeseries_dir).rglob("*.mp4").__next__()
-
+    neon_vid_path = next(Path(neon_timeseries_dir).rglob("*.mp4"))
     rendered_video_path = Path(
         output_dir,
         f"rendered_videos/neon_comparison_{Path(mapped_gaze_path).parent.stem}.mp4",

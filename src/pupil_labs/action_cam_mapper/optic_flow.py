@@ -262,22 +262,22 @@ def calculate_optic_flow(
     if optic_flow_method.lower() == "farneback":
         alternative_of = OpticFlowCalculatorFarneback(video_path=alternative_video_path)
         neon_of = OpticFlowCalculatorFarneback(video_path=neon_video_path)
-        method = "farneback"
 
     elif optic_flow_method.lower() == "lucas-kanade":
         alternative_of = OpticFlowCalculatorLK(video_path=alternative_video_path)
         neon_of = OpticFlowCalculatorLK(video_path=neon_video_path)
-        method = "lk"
     else:
         raise ValueError(
             'Invalid optic flow choice. Choose from "farneback" or "lucas-kanade"'
         )
 
     optic_flow_neon = neon_of.process_video(
-        output_file_path=Path(output_dir, f"neon_{method}_of.csv")
+        output_file_path=Path(output_dir, f"neon_{optic_flow_method.lower()}.csv")
     )
     optic_flow_alternative = alternative_of.process_video(
-        output_file_path=Path(output_dir, f"alternative_{method}_of.csv")
+        output_file_path=Path(
+            output_dir, f"alternative_{optic_flow_method.lower()}.csv"
+        )
     )
 
     return optic_flow_neon, optic_flow_alternative

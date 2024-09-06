@@ -188,9 +188,6 @@ def main(args=None):
         save_comparison_video(**comparison_kwargs)
 
     if args.render_video:
-        method = (
-            "lk" if args.optic_flow_choice.lower() == "lucas-kanade" else "farneback"
-        )
         gaze_video_args = {
             "video_path": args.alternative_vid_path,
             "timestamps_path": Path(
@@ -198,7 +195,8 @@ def main(args=None):
             ),
             "gaze_path": Path(gaze_csv_path),
             "save_video_path": Path(
-                args.output_dir, f"rendered_videos/{args.matcher.lower()}_{method}.mp4"
+                args.output_dir,
+                f"rendered_videos/{args.matcher.lower()}_{args.optic_flow_choice.lower()}.mp4",
             ),
         }
         save_gaze_video(**gaze_video_args)

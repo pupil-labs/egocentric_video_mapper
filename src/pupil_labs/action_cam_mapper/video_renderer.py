@@ -13,137 +13,6 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.WARNING)
 
 
-def view_video(
-    alternative_video_path,
-    alternative_timestamps_path,
-    alternative_gaze_paths_dict,
-    neon_video_path,
-    neon_worldtimestamps_path,
-    neon_gaze_path,
-):
-
-    alternative_coords = {
-        matcher: _get_gaze_per_frame(
-            gaze_file=path, video_timestamps=alternative_timestamps_path
-        )
-        for matcher, path in alternative_gaze_paths_dict.items()
-    }
-    neon_gaze_coords_list = _get_gaze_per_frame(
-        gaze_file=neon_gaze_path, video_timestamps=neon_worldtimestamps_path
-    )
-
-    alternative_video = VideoHandler(alternative_video_path)
-    neon_video = VideoHandler(neon_video_path)
-
-    neon_timestamps = pd.read_csv(
-        neon_worldtimestamps_path, dtype={"timestamp [ns]": np.float64}
-    )
-    alternative_timestamps = pd.read_csv(
-        alternative_timestamps_path, dtype={"timestamp [ns]": np.float64}
-    )
-
-    alternative_time = alternative_timestamps["timestamp [ns]"].values
-    alternative_time -= neon_timestamps["timestamp [ns]"].values[0]
-    alternative_time /= 1e9
-
-    neon_gaze_dict = dict(zip(neon_video.timestamps, neon_gaze_coords_list))
-    alternative_gaze_dict = {
-        matcher: dict(zip(alternative_time, coords_list))
-        for matcher, coords_list in alternative_coords.items()
-    }
-
-    video_height = max(alternative_video.height, neon_video.height)
-    video_width = neon_video.width + alternative_video.width * len(
-        alternative_gaze_dict.keys()
-    )
-    video_height = video_height // len(alternative_gaze_dict.keys())
-    video_width = video_width // len(alternative_gaze_dict.keys())
-
-    for alt_ts_idx, alt_ts in enumerate(alternative_time):
-        neon_frame = neon_video.get_frame_by_timestamp(alt_ts)
-        neon_frame = cv.cvtColor(neon_frame, cv.COLOR_BGR2RGB)
-
-        neon_frame_gaze = _draw_gaze_on_frame(
-            neon_frame.copy(),
-            neon_gaze_dict[neon_video.get_closest_timestamp(alt_ts)[0]],
-        )
-        neon_frame_gaze = _write_text_on_frame(
-            neon_frame_gaze, "Neon Scene Camera", (50, 80), color=(255, 255, 255)
-        )
-        neon_frame_gaze = _write_text_on_frame(
-            neon_frame_gaze,
-            f"Time: {neon_video.get_closest_timestamp(alt_ts)[0]:.3f}",
-            (50, 150),
-            size=2,
-            color=(255, 255, 255),
-        )
-
-        all_frames = neon_frame_gaze.copy()
-
-        alternative_frame = alternative_video.get_frame_by_timestamp(
-            alternative_video.timestamps[alt_ts_idx]
-        )
-        alternative_frame = cv.cvtColor(alternative_frame, cv.COLOR_RGB2BGR)
-
-        for matcher in alternative_gaze_dict.keys():
-            gaze = alternative_gaze_dict[matcher][alt_ts]
-            alternative_frame_gaze = _draw_gaze_on_frame(
-                alternative_frame.copy(),
-                gaze,
-            )
-            alternative_frame_gaze = _write_text_on_frame(
-                alternative_frame_gaze, matcher, (50, 80), color=(255, 255, 255)
-            )
-            alternative_frame_gaze = _write_text_on_frame(
-                alternative_frame_gaze,
-                f"Time: {alt_ts:.3f}",
-                (50, 150),
-                size=2,
-                color=(255, 255, 255),
-            )
-
-            all_frames, alternative_frame_gaze = _pad_images_height(
-                all_frames, alternative_frame_gaze
-            )
-            all_frames = np.concatenate([all_frames, alternative_frame_gaze], axis=1)
-
-        all_frames = cv.resize(all_frames, (video_width, video_height))
-        cv.imshow("Comparing mappings", all_frames)
-        cv.waitKey(100)
-        pressedKey = cv.waitKey(50) & 0xFF
-        if pressedKey == ord(" "):
-            print("Paused")
-            cv.waitKey(0)
-        if pressedKey == ord("q"):
-            break
-    cv.destroyAllWindows()
-
-
-def save_gaze_video(video_path, timestamps_path, gaze_path, save_video_path):
-    gaze_coordinates = _get_gaze_per_frame(
-        gaze_file=gaze_path, video_timestamps=timestamps_path
-    )
-    video = VideoHandler(video_path)
-
-    video_height = video.height
-    video_width = video.width
-    fourcc = cv.VideoWriter_fourcc(*"mp4v")
-    Path(save_video_path).parent.mkdir(parents=True, exist_ok=True)
-    gaze_video = cv.VideoWriter(
-        str(save_video_path), fourcc, int(video.fps), (video_width, video_height)
-    )
-    logger.info(f"Saving video at {save_video_path}")
-    logger.info(f"Video width: {video_width}, Video height: {video_height}")
-
-    for i, gaze in enumerate(tqdm(gaze_coordinates)):
-        frame = video.get_frame_by_timestamp(video.timestamps[i])
-        frame = cv.cvtColor(frame, cv.COLOR_RGB2BGR)
-        frame = _draw_gaze_on_frame(frame, gaze)
-        gaze_video.write(frame.astype(np.uint8))
-    gaze_video.release()
-    logger.info(f"Video saved at {save_video_path}")
-
-
 def save_comparison_video(
     alternative_video_path,
     alternative_timestamps_path,
@@ -154,6 +23,18 @@ def save_comparison_video(
     save_video_path,
     same_frame=False,
 ):
+    """Create a video with the Neon Scene camera video and the alternative camera video side by side with the gaze coordinates overlaid on top of the frames.If same_frame is set to True, the gaze signals in the alternative_gaze_paths_dict will be overlaid on the same frame. Otherwise, the gaze coordinates will be overlaid on separate frames, stacked horizontally.
+
+    Args:
+        alternative_video_path (str): Path to the alternative camera video
+        alternative_timestamps_path (str): Path to the timestamps csv of the alternative camera video
+        alternative_gaze_paths_dict (dict): Dictionary containing a short description of the mapping and the path to the alternative camera gaze csv
+        neon_video_path (str): Path to the Neon Scene camera video
+        neon_worldtimestamps_path (str): Path to the timestamps csv of the Neon Scene camera video
+        neon_gaze_path (str): Path to the gaze csv of the Neon Scene camera video
+        save_video_path (str): Path to save the comparison video, it must include the filename and extension(.mp4)
+        same_frame (bool, optional): . Defaults to False.
+    """
     alternative_coords = {
         matcher: _get_gaze_per_frame(
             gaze_file=path, video_timestamps=alternative_timestamps_path
@@ -289,6 +170,145 @@ def save_comparison_video(
         all_frames = cv.resize(all_frames, (video_width, video_height))
         video.write(all_frames.astype(np.uint8))
     video.release()
+    logger.info(f"Video saved at {save_video_path}")
+
+
+def view_video(
+    alternative_video_path,
+    alternative_timestamps_path,
+    alternative_gaze_paths_dict,
+    neon_video_path,
+    neon_worldtimestamps_path,
+    neon_gaze_path,
+):
+    """Display the Neon Scene camera video and the alternative camera video side by side with the gaze coordinates overlaid on top of the frames.
+    The gaze coordinates are obtained from the gaze files associated with each video and are matched to the video timestamps.
+
+    """
+
+    alternative_coords = {
+        matcher: _get_gaze_per_frame(
+            gaze_file=path, video_timestamps=alternative_timestamps_path
+        )
+        for matcher, path in alternative_gaze_paths_dict.items()
+    }
+    neon_gaze_coords_list = _get_gaze_per_frame(
+        gaze_file=neon_gaze_path, video_timestamps=neon_worldtimestamps_path
+    )
+
+    alternative_video = VideoHandler(alternative_video_path)
+    neon_video = VideoHandler(neon_video_path)
+
+    neon_timestamps = pd.read_csv(
+        neon_worldtimestamps_path, dtype={"timestamp [ns]": np.float64}
+    )
+    alternative_timestamps = pd.read_csv(
+        alternative_timestamps_path, dtype={"timestamp [ns]": np.float64}
+    )
+
+    alternative_time = alternative_timestamps["timestamp [ns]"].values
+    alternative_time -= neon_timestamps["timestamp [ns]"].values[0]
+    alternative_time /= 1e9
+
+    neon_gaze_dict = dict(zip(neon_video.timestamps, neon_gaze_coords_list))
+    alternative_gaze_dict = {
+        matcher: dict(zip(alternative_time, coords_list))
+        for matcher, coords_list in alternative_coords.items()
+    }
+
+    video_height = max(alternative_video.height, neon_video.height)
+    video_width = neon_video.width + alternative_video.width * len(
+        alternative_gaze_dict.keys()
+    )
+    video_height = video_height // len(alternative_gaze_dict.keys())
+    video_width = video_width // len(alternative_gaze_dict.keys())
+
+    for alt_ts_idx, alt_ts in enumerate(alternative_time):
+        neon_frame = neon_video.get_frame_by_timestamp(alt_ts)
+        neon_frame = cv.cvtColor(neon_frame, cv.COLOR_BGR2RGB)
+
+        neon_frame_gaze = _draw_gaze_on_frame(
+            neon_frame.copy(),
+            neon_gaze_dict[neon_video.get_closest_timestamp(alt_ts)[0]],
+        )
+        neon_frame_gaze = _write_text_on_frame(
+            neon_frame_gaze, "Neon Scene Camera", (50, 80), color=(255, 255, 255)
+        )
+        neon_frame_gaze = _write_text_on_frame(
+            neon_frame_gaze,
+            f"Time: {neon_video.get_closest_timestamp(alt_ts)[0]:.3f}",
+            (50, 150),
+            size=2,
+            color=(255, 255, 255),
+        )
+
+        all_frames = neon_frame_gaze.copy()
+
+        alternative_frame = alternative_video.get_frame_by_timestamp(
+            alternative_video.timestamps[alt_ts_idx]
+        )
+        alternative_frame = cv.cvtColor(alternative_frame, cv.COLOR_RGB2BGR)
+
+        for matcher in alternative_gaze_dict.keys():
+            gaze = alternative_gaze_dict[matcher][alt_ts]
+            alternative_frame_gaze = _draw_gaze_on_frame(
+                alternative_frame.copy(),
+                gaze,
+            )
+            alternative_frame_gaze = _write_text_on_frame(
+                alternative_frame_gaze, matcher, (50, 80), color=(255, 255, 255)
+            )
+            alternative_frame_gaze = _write_text_on_frame(
+                alternative_frame_gaze,
+                f"Time: {alt_ts:.3f}",
+                (50, 150),
+                size=2,
+                color=(255, 255, 255),
+            )
+
+            all_frames, alternative_frame_gaze = _pad_images_height(
+                all_frames, alternative_frame_gaze
+            )
+            all_frames = np.concatenate([all_frames, alternative_frame_gaze], axis=1)
+
+        all_frames = cv.resize(all_frames, (video_width, video_height))
+        cv.imshow("Comparing mappings", all_frames)
+        cv.waitKey(100)
+        pressedKey = cv.waitKey(50) & 0xFF
+        if pressedKey == ord(" "):
+            print("Paused")
+            cv.waitKey(0)
+        if pressedKey == ord("q"):
+            break
+    cv.destroyAllWindows()
+
+
+def save_gaze_video(video_path, timestamps_path, gaze_path, save_video_path):
+    """This function creates a video with the gaze coordinates overlaid on top of the frames of the video.
+    The gaze coordinates are obtained from the gaze file associated with the video and are matched to the video timestamps.
+
+    """
+    gaze_coordinates = _get_gaze_per_frame(
+        gaze_file=gaze_path, video_timestamps=timestamps_path
+    )
+    video = VideoHandler(video_path)
+
+    video_height = video.height
+    video_width = video.width
+    fourcc = cv.VideoWriter_fourcc(*"mp4v")
+    Path(save_video_path).parent.mkdir(parents=True, exist_ok=True)
+    gaze_video = cv.VideoWriter(
+        str(save_video_path), fourcc, int(video.fps), (video_width, video_height)
+    )
+    logger.info(f"Saving video at {save_video_path}")
+    logger.info(f"Video width: {video_width}, Video height: {video_height}")
+
+    for i, gaze in enumerate(tqdm(gaze_coordinates)):
+        frame = video.get_frame_by_timestamp(video.timestamps[i])
+        frame = cv.cvtColor(frame, cv.COLOR_RGB2BGR)
+        frame = _draw_gaze_on_frame(frame, gaze)
+        gaze_video.write(frame.astype(np.uint8))
+    gaze_video.release()
     logger.info(f"Video saved at {save_video_path}")
 
 

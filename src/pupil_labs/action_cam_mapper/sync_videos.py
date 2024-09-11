@@ -5,6 +5,9 @@ import numpy as np
 import scipy.interpolate
 import scipy.signal
 
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
 
 class OffsetCalculator:
     """This class provides methods to estimate the time offset between two signals and calculate the Pearson correlation coefficient.
@@ -27,16 +30,18 @@ class OffsetCalculator:
     def __init__(
         self, src, src_timestamps, dst, dst_timestamps, resampling_frequency=100
     ):
-        self.src = np.asarray(src).reshape(-1)
-        self.src_timestamps = np.asarray(src_timestamps).reshape(-1)
+        self.src = np.asarray(src).flatten()
+        self.src_timestamps = np.asarray(src_timestamps).flatten()
         assert len(self.src) == len(
             self.src_timestamps
         ), "Source signal and timestamps must have the same length"
-        self.dst = np.asarray(dst).reshape(-1)
-        self.dst_timestamps = np.asarray(dst_timestamps).reshape(-1)
+
+        self.dst = np.asarray(dst).flatten()
+        self.dst_timestamps = np.asarray(dst_timestamps).flatten()
         assert len(self.dst) == len(
             self.dst_timestamps
         ), "Destination signal and timestamps must have the same length"
+
         self.resampling_frequency = resampling_frequency
         self.src_resampled, self.src_resampled_timestamps = self._resample_signal(
             self.src, self.src_timestamps, self.resampling_frequency
@@ -45,8 +50,6 @@ class OffsetCalculator:
             self.dst, self.dst_timestamps, self.resampling_frequency
         )
         self.time_offset = None
-        self.logger = logging.getLogger(__name__)
-        self.logger.setLevel(logging.WARNING)
 
     @staticmethod
     def _resample_signal(signal, timestamps, resampling_frequency=100):
@@ -94,7 +97,7 @@ class OffsetCalculator:
             + self.dst_resampled_timestamps[0]
         )
 
-        self.logger.info(
+        logger.info(
             f"With the interval going from {self.src_resampled_timestamps[start_index]}s to {self.src_resampled_timestamps[-1 if end_index is None else end_index]}s of the src signal, the estimated time offset is: {self.time_offset} seconds (Pearson correlation: {correlation_score})"
         )
         if plot:
@@ -162,9 +165,10 @@ class OffsetCalculator:
             source_signal (ndarray): Source signal to be clipped. Might not be the full signal.
 
         Returns:
-            tuple: A tuple containing two arrays:
+            tuple: A tuple containing 3 arrays:
                 - The given source signal clipped to the overlapping region.
                 - The destination signal clipped to the overlapping region.
+                - The timestamps of the destination signal clipped to the overlapping region.
         """
         if sampling_offset < 0:
             src_trimmed = src_signal[abs(sampling_offset) :]

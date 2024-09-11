@@ -7,7 +7,10 @@ import cv2 as cv
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
-from utils import VideoHandler
+from video_handler import VideoHandler
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 
 @dataclass
@@ -28,7 +31,6 @@ class OpticFlowCalculatorBase(ABC):
         self.results = pd.DataFrame.from_dict(
             dict(start=[], end=[], dx=[], dy=[], angle=[])
         )
-        self.logger = logging.getLogger(__name__)
 
     def process_video(
         self, start_time_sec=None, end_time_sec=None, output_file_path=None
@@ -121,7 +123,7 @@ class OpticFlowCalculatorBase(ABC):
         if optic_flow_data is None:
             optic_flow_data = self.results
         if Path(output_file_path).exists():
-            self.logger.warning("File already exists, appending to it")
+            logger.warning("File already exists, appending to it")
             optic_flow_file = pd.read_csv(output_file_path, dtype=np.float32)
             optic_flow_data = pd.concat(
                 [optic_flow_file, optic_flow_data], ignore_index=True
@@ -133,7 +135,7 @@ class OpticFlowCalculatorBase(ABC):
         )
         optic_flow_data.sort_values(by=["start"], inplace=True, ignore_index=True)
         optic_flow_data.to_csv(output_file_path, index=False)
-        self.logger.info(f"Optic flow data saved to {output_file_path}")
+        logger.info(f"Optic flow data saved to {output_file_path}")
 
 
 class OpticFlowCalculatorLK(OpticFlowCalculatorBase):

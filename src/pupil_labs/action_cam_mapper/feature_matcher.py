@@ -14,12 +14,12 @@ from torchvision import transforms
 class ImageMatcher(ABC):
     def __init__(self, gpu_num=None):
         if gpu_num is None:
-            self.device = torch.device("cpu")
+            self._device = torch.device("cpu")
         else:
-            self.device = torch.device(
+            self._device = torch.device(
                 f"cuda:{gpu_num}" if torch.cuda.is_available() else "cpu"
             )
-        self.transform = transforms.Compose([transforms.ToTensor()])
+        self._transform = transforms.Compose([transforms.ToTensor()])
 
     @abstractmethod
     def get_correspondences(
@@ -64,7 +64,7 @@ class ImageMatcher(ABC):
             image.shape[1] / scaled_image.shape[1],
             image.shape[0] / scaled_image.shape[0],
         )
-        scaled_image = self.transform(scaled_image)
+        scaled_image = self._transform(scaled_image)
         scaled_image = torch.unsqueeze(scaled_image, dim=0)
         return scaled_image, ratio_scaled2image
 
@@ -78,7 +78,7 @@ class LOFTRImageMatcher(ImageMatcher):
             gpu_num (int, optional): The GPU device number to use, if None it uses CPU. Defaults to None.
         """
         super().__init__(gpu_num)
-        self.image_matcher = kornia.feature.LoFTR(pretrained=location).to(self.device)
+        self.image_matcher = kornia.feature.LoFTR(pretrained=location).to(self._device)
 
     def get_correspondences(
         self, src_image, dst_image, src_patch_corners=None, dst_patch_corners=None
@@ -91,8 +91,8 @@ class LOFTRImageMatcher(ImageMatcher):
         )
 
         input_dict = {
-            "image0": src_tensor.to(self.device),
-            "image1": dst_tensor.to(self.device),
+            "image0": src_tensor.to(self._device),
+            "image1": dst_tensor.to(self._device),
         }
 
         with torch.inference_mode():
@@ -129,9 +129,9 @@ class DISKLightGlueImageMatcher(ImageMatcher):
         self.num_features = num_features
 
         self.feature_extractor = kornia.feature.DISK.from_pretrained("depth").to(
-            self.device
+            self._device
         )
-        self.feature_matcher = kornia.feature.LightGlue("disk").eval().to(self.device)
+        self.feature_matcher = kornia.feature.LightGlue("disk").eval().to(self._device)
 
     def get_correspondences(
         self, src_image, dst_image, src_patch_corners=None, dst_patch_corners=None
@@ -145,8 +145,8 @@ class DISKLightGlueImageMatcher(ImageMatcher):
         )  # 1xCxHxW
 
         with torch.inference_mode():
-            src_tensor = src_tensor.to(self.device)
-            dst_tensor = dst_tensor.to(self.device)
+            src_tensor = src_tensor.to(self._device)
+            dst_tensor = dst_tensor.to(self._device)
 
             features0 = self.feature_extractor(
                 src_tensor, self.num_features, pad_if_not_divisible=True
@@ -160,14 +160,14 @@ class DISKLightGlueImageMatcher(ImageMatcher):
                 "descriptors": features0.descriptors[None],
                 "image_size": torch.tensor(src_tensor.shape[-2:][::-1])
                 .view(1, 2)
-                .to(self.device),
+                .to(self._device),
             }
             image_dst = {
                 "keypoints": features1.keypoints[None],
                 "descriptors": features1.descriptors[None],
                 "image_size": torch.tensor(dst_tensor.shape[-2:][::-1])
                 .view(1, 2)
-                .to(self.device),
+                .to(self._device),
             }
 
             out = self.feature_matcher({"image0": image_src, "image1": image_dst})
@@ -212,9 +212,9 @@ class DeDoDeLightGlueImageMatcher(ImageMatcher):
 
         self.feature_extractor = kornia.feature.DeDoDe.from_pretrained(
             detector_weights="L-upright", descriptor_weights="B-upright"
-        ).to(self.device)
+        ).to(self._device)
         self.feature_matcher = (
-            kornia.feature.LightGlue("dedodeb").eval().to(self.device)
+            kornia.feature.LightGlue("dedodeb").eval().to(self._device)
         )
 
     def get_correspondences(
@@ -228,8 +228,8 @@ class DeDoDeLightGlueImageMatcher(ImageMatcher):
         )  # 1xcxhxw
 
         with torch.inference_mode():
-            src_tensor = src_tensor.to(self.device)
-            dst_tensor = dst_tensor.to(self.device)
+            src_tensor = src_tensor.to(self._device)
+            dst_tensor = dst_tensor.to(self._device)
 
             keypoints0, _, descriptors0 = self.feature_extractor(
                 src_tensor, self.num_features
@@ -243,14 +243,14 @@ class DeDoDeLightGlueImageMatcher(ImageMatcher):
                 "descriptors": descriptors0,
                 "image_size": torch.tensor(src_tensor.shape[-2:][::-1])
                 .view(1, 2)
-                .to(self.device),
+                .to(self._device),
             }
             image_dst = {
                 "keypoints": keypoints1,
                 "descriptors": descriptors1,
                 "image_size": torch.tensor(dst_tensor.shape[-2:][::-1])
                 .view(1, 2)
-                .to(self.device),
+                .to(self._device),
             }
 
             out = self.feature_matcher({"image0": image_src, "image1": image_dst})
@@ -307,7 +307,7 @@ class EfficientLoFTRImageMatcher(ImageMatcher):
         except FileNotFoundError:
             raise FileNotFoundError(f"{Path(__file__)} :(")
         self.image_matcher = reparameter(self.image_matcher)
-        self.image_matcher = self.image_matcher.eval().to(self.device)
+        self.image_matcher = self.image_matcher.eval().to(self._device)
 
     def get_correspondences(
         self, src_image, dst_image, src_patch_corners=None, dst_patch_corners=None
@@ -320,8 +320,8 @@ class EfficientLoFTRImageMatcher(ImageMatcher):
         )
 
         batch = {
-            "image0": src_tensor.to(self.device),
-            "image1": dst_tensor.to(self.device),
+            "image0": src_tensor.to(self._device),
+            "image1": dst_tensor.to(self._device),
         }
 
         with torch.inference_mode():

@@ -5,112 +5,9 @@ from pathlib import Path
 import av
 import numpy as np
 import pandas as pd
-from pupil_labs.dynamic_content_on_rim.video.read import get_frame
 
-
-class VideoHandler:
-    def __init__(self, video_path):
-        self.path = video_path
-        self.video_container = av.open(self.path)
-        self._timestamps = self._get_timestamps()
-        self._set_properties()
-
-    @property
-    def height(self):
-        return self._height
-
-    @property
-    def width(self):
-        return self._width
-
-    @property
-    def timestamps(self):
-        return self._timestamps
-
-    @property
-    def fps(self):
-        return self._fps
-
-    def get_frame_by_timestamp(self, timestamp):
-        timestamp, _ = self.get_closest_timestamp(timestamp)
-        pts = np.int32(np.round(timestamp * self._time_base.denominator))
-
-        if pts < self.lpts:  # if seeking backwards, reset the video container
-            self._read_frames = 0
-            self.video_container = av.open(self.path)
-
-        if self._read_frames == 0:
-            self.lpts = -1
-            self.last_frame = None
-
-        vid_frame, self.lpts = get_frame(
-            self.video_container, pts, self.lpts, self.last_frame
-        )
-        frame = vid_frame.to_ndarray(format="rgb24")
-        self.last_frame = vid_frame
-        self._read_frames += 1
-        return frame
-
-    def _get_timestamps(self):
-        container = av.open(self.path)
-        video = container.streams.video[0]
-        av_timestamps = [
-            packet.pts / video.time_base.denominator
-            for packet in container.demux(video)
-            if packet.pts is not None
-        ]
-        container.close()
-        av_timestamps.sort()
-        return np.asarray(av_timestamps, dtype=np.float32)
-
-    def _set_properties(self):
-        container = av.open(self.path)
-        video = container.streams.video[0]
-        self._height = video.height
-        self._width = video.width
-        self._fps = float(video.average_rate)
-        self._time_base = video.time_base
-        container.close()
-        self._read_frames = 0
-        self.lpts = -1
-
-    def get_timestamps_in_interval(self, start_time=0, end_time=np.inf):
-        assert (
-            start_time < end_time
-        ), f"Start time ({start_time} s) must be smaller than end time ({end_time} s)"
-        return self.timestamps[
-            (self.timestamps >= start_time) & (self.timestamps <= end_time)
-        ]
-
-    def get_closest_timestamp(self, time):  # debug
-        after_index = np.searchsorted(self.timestamps, time)
-        if after_index == len(self.timestamps):
-            after_index = len(self.timestamps) - 1
-        before_index = after_index - 1
-
-        ts_after = self.timestamps[after_index]
-        ts_before = self.timestamps[before_index]
-
-        if np.abs(ts_after - time) < np.abs(ts_before - time):
-            return ts_after, int(after_index)
-        else:
-            return ts_before, int(before_index)
-
-    def get_surrounding_timestamps(self, time):
-        closest_timestamp = self.get_closest_timestamp(time)
-
-        if closest_timestamp > time:
-            previous_timestamp = self.timestamps[
-                np.where(self.timestamps == closest_timestamp)[0][0] - 1
-            ]
-            next_timestamp = closest_timestamp
-        else:
-            previous_timestamp = closest_timestamp
-            next_timestamp = self.timestamps[
-                np.where(self.timestamps == closest_timestamp)[0][0] + 1
-            ]
-
-        return previous_timestamp, next_timestamp
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.WARNING)
 
 
 def write_timestamp_csv(neon_timeseries_dir, aligned_relative_ts, output_file_dir=None):
@@ -121,9 +18,6 @@ def write_timestamp_csv(neon_timeseries_dir, aligned_relative_ts, output_file_di
         aligned_relative_ts (ndarray): Timestamps of the alternative camera recording, obtained from the metadata of the video file. This function assumes that the timestamps are already aligned with the relative Neon recording timestamps (offset is corrected).
         output_file_dir (str, optional): Path to the directory where thealternative camera timestamps csv file will be saved. If None, the file is saved in the same directory as the world_timestamps.csv. Defaults to None.
     """
-    logger = logging.getLogger(__name__)
-    logger.setLevel(logging.WARNING)
-
     output_file_path = (
         Path(output_file_dir or neon_timeseries_dir)
         / "alternative_camera_timestamps.csv"
@@ -152,19 +46,29 @@ def write_timestamp_csv(neon_timeseries_dir, aligned_relative_ts, output_file_di
     first_ts = neon_timestamps_df["timestamp [ns]"].values[0]
     last_ts = neon_timestamps_df["timestamp [ns]"].values[-1]
 
-    mssg = f'First timestamp in alternative camera recording ({pd.Timestamp(alternative_timestamps_df["timestamp [ns]"].values[0],unit="ns")}) is {"before" if alternative_timestamps_df["timestamp [ns]"].values[0]<first_ts else "after"} the first timestamp of Neon Scene recording ({pd.Timestamp(first_ts,unit="ns")})'
-    (
-        logger.warning(mssg)
-        if alternative_timestamps_df["timestamp [ns]"].values[0] < first_ts
-        else logger.info(mssg)
-    )
+    if alternative_timestamps_df["timestamp [ns]"].values[0] < first_ts:
+        time_relation = "before"
+    else:
+        time_relation = "after"
 
-    mssg = f'Last timestamp of alternative camera recording ({pd.Timestamp(alternative_timestamps_df["timestamp [ns]"].values[-1],unit="ns")}) is {"before" if alternative_timestamps_df["timestamp [ns]"].values[-1]<last_ts else "after"} the last timestamp of Neon Scene recording ({pd.Timestamp(last_ts, unit="ns")})'
-    (
+    mssg = f'First timestamp in alternative camera recording ({pd.Timestamp(alternative_timestamps_df["timestamp [ns]"].values[0],unit="ns")}) is {time_relation} the first timestamp of Neon Scene recording ({pd.Timestamp(first_ts,unit="ns")})'
+
+    if alternative_timestamps_df["timestamp [ns]"].values[0] < first_ts:
         logger.warning(mssg)
-        if alternative_timestamps_df["timestamp [ns]"].values[-1] > last_ts
-        else logger.info(mssg)
-    )
+    else:
+        logger.info(mssg)
+
+    if alternative_timestamps_df["timestamp [ns]"].values[-1] < last_ts:
+        time_relation = "before"
+    else:
+        time_relation = "after"
+
+    mssg = f'Last timestamp of alternative camera recording ({pd.Timestamp(alternative_timestamps_df["timestamp [ns]"].values[-1],unit="ns")}) is {time_relation} the last timestamp of Neon Scene recording ({pd.Timestamp(last_ts, unit="ns")})'
+
+    if alternative_timestamps_df["timestamp [ns]"].values[-1] > last_ts:
+        logger.warning(mssg)
+    else:
+        logger.info(mssg)
 
     for section in neon_timestamps_df["section id"].unique():
         start_section = min(
@@ -222,6 +126,7 @@ def generate_mapper_kwargs(
         "disk_lightglue": {"num_features": 2048, "gpu_num": 0},
         "dedode_lightglue": {"num_features": 5000, "gpu_num": 0},
     }
+    # Video file name in the TimeSeries +
     neon_vid_path = next(Path(neon_timeseries_dir).rglob("*.mp4"))
 
     alternative_timestamps_path = Path(output_dir, "alternative_camera_timestamps.csv")
@@ -254,7 +159,7 @@ def generate_mapper_kwargs(
             output_dir, f"mapped_gaze/{matcher_choice}_{optic_flow_method.lower()}"
         ),
         "patch_size": 1000,
-        "logging_level": "ERROR",
+        "logging_level": "INFO",
     }
     return mapper_kwargs
 

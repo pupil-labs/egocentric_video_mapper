@@ -58,7 +58,6 @@ Download the directory with model weights for `EfficientLOFTR <https://github.co
 Run it!
 ============
 To run the project, you can open 'PL-mapper.ipynb' in the IDE of your choice and run the cells. Conversely, you can run the following command from the terminal and it will open the notebook in your browser ready to run the cells:
-
 ::
    jupyter notebook --port=9000 src/pupil_labs/action_cam_mapper/PL-mapper.ipynb
 

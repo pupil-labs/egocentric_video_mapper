@@ -81,15 +81,14 @@ class OpticFlowCalculatorBase(ABC):
             self.write_to_csv(output_file_path, requested_optic_flow)
         return requested_optic_flow
 
-    def _is_optic_flow_already_calculated(self, start_timestamp, end_timestamp):
+    def _is_optic_flow_already_calculated(self, start_ts, end_ts):
         return not self.results[
-            (self.results["start"] == start_timestamp)
-            & (self.results["end"] == end_timestamp)
+            (self.results["start"] == start_ts) & (self.results["end"] == end_ts)
         ].empty
 
-    def _retrieve_optic_flow(self, ts_start, ts_end):
+    def _retrieve_optic_flow(self, start_ts, end_ts):
         optic_flow_query = self.results[
-            (self.results["start"] == ts_start) & (self.results["end"] == ts_end)
+            (self.results["start"] == start_ts) & (self.results["end"] == end_ts)
         ].drop(columns=["angle"])
         return (
             OpticFlowResult(**optic_flow_query.to_dict(orient="records")[0])

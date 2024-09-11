@@ -28,27 +28,28 @@ class OffsetCalculator:
     """
 
     def __init__(
-        self, src, src_timestamps, dst, dst_timestamps, resampling_frequency=100
+        self, src, src_timestamps_sec, dst, dst_timestamps_sec, resampling_frequency=100
     ):
         self.src = np.asarray(src).flatten()
-        self.src_timestamps = np.asarray(src_timestamps).flatten()
+        self.src_ts_sec = np.asarray(src_timestamps_sec).flatten()
         assert len(self.src) == len(
-            self.src_timestamps
+            self.src_ts_sec
         ), "Source signal and timestamps must have the same length"
 
         self.dst = np.asarray(dst).flatten()
-        self.dst_timestamps = np.asarray(dst_timestamps).flatten()
+        self.dst_ts_sec = np.asarray(dst_timestamps_sec).flatten()
         assert len(self.dst) == len(
-            self.dst_timestamps
+            self.dst_ts_sec
         ), "Destination signal and timestamps must have the same length"
 
         self.resampling_frequency = resampling_frequency
         self.src_resampled, self.src_resampled_timestamps = self._resample_signal(
-            self.src, self.src_timestamps, self.resampling_frequency
+            self.src, self.src_ts_sec, self.resampling_frequency
         )
         self.dst_resampled, self.dst_resampled_timestamps = self._resample_signal(
-            self.dst, self.dst_timestamps, self.resampling_frequency
+            self.dst, self.dst_ts_sec, self.resampling_frequency
         )
+
         self.time_offset = None
 
     @staticmethod

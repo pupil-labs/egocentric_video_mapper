@@ -117,6 +117,7 @@ def main(args=None):
     args.optic_flow_thrshld = (
         None if args.optic_flow_thrshld == 0 else args.optic_flow_thrshld
     )
+    print(args.gaze_change_thrshld, args.refresh_time_thrshld, args.optic_flow_thrshld)
 
     Path(args.output_dir).mkdir(parents=True, exist_ok=True)
 
@@ -204,5 +205,5 @@ def main(args=None):
 
 if __name__ == "__main__":
     # minimal example
-    # python -m pupil_labs.action_cam_mapper --neon_timeseries_dir /users/sof/dataset_bias/office_inclined/2024-08-08_12-16-21-7c7a51ef --alternative_vid_path /users/sof/dataset_bias/office_inclined/AVun_20240808_133620_477.mp4 --output_dir /users/sof/action_map_experiments/outout --optic_flow_choice Lucas-Kanade --matcher Efficient_LOFTR --refresh_time_thrshld 0.5 --optic_flow_thrshld 0.5 --gaze_change_thrshld 0.5 --render_comparison_video True --render_video True
+    # python -m pupil_labs.action_cam_mapper --neon_timeseries_dir /users/sof/video_examples/second_video/2024-05-23_16-47-35-a666ea62 --alternative_vid_path /users/sof/video_examples/second_video/20240523_171941_000.mp4 --output_dir /users/sof/action_map_experiments/output5 --optic_flow_choice Lucas-Kanade --matcher Efficient_LOFTR --refresh_time_thrshld 0.5 --optic_flow_thrshld None --gaze_change_thrshld 0 --render_comparison_video False --render_video False
     main()

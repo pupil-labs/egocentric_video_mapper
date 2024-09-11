@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 from feature_matcher import get_matcher
 from tqdm import tqdm
-from utils import VideoHandler
+from video_handler import VideoHandler
 
 
 class EgocentricMapper:
@@ -24,7 +24,7 @@ class EgocentricMapper:
         output_dir=None,
         patch_size=1000,
         alternative_fov=[145, 76],
-        logging_level="ERROR",
+        logging_level="INFO",
     ):
         """Class to map gaze from the Neon scene camera to an alternative camera. The gaze is mapped by calling the map_gaze method which uses correspondences between the two cameras to calculate the gaze transformation.
 
@@ -122,7 +122,6 @@ class EgocentricMapper:
             tqdm(
                 self.alt_gaze["timestamp [ns]"].values,
                 desc="Mapping gaze signal",
-                total=len(self.alt_gaze["timestamp [ns]"].values),
             )
         ):
 

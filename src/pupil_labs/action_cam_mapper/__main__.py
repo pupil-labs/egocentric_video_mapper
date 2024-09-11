@@ -5,13 +5,14 @@ from pathlib import Path
 
 from gaze_mapper import EgocentricMapper
 from optic_flow import calculate_optic_flow
+from rich.logging import RichHandler
 from sync_videos import OffsetCalculator
 from utils import (
-    VideoHandler,
     generate_comparison_video_kwargs,
     generate_mapper_kwargs,
     write_timestamp_csv,
 )
+from video_handler import VideoHandler
 from video_renderer import save_comparison_video, save_gaze_video
 
 
@@ -117,7 +118,6 @@ def main(args=None):
     args.optic_flow_thrshld = (
         None if args.optic_flow_thrshld == 0 else args.optic_flow_thrshld
     )
-    print(args.gaze_change_thrshld, args.refresh_time_thrshld, args.optic_flow_thrshld)
 
     Path(args.output_dir).mkdir(parents=True, exist_ok=True)
 
@@ -127,6 +127,11 @@ def main(args=None):
         logging.Formatter(
             "[%(levelname)s] %(funcName)s function in %(name)s: %(message)s"
         )
+    )
+    stream_handler = RichHandler()
+    stream_handler.setLevel(logging.INFO)
+    stream_handler.setFormatter(
+        logging.Formatter("%(funcName)s in %(name)s: %(message)s")
     )
     logging.basicConfig(
         format="[%(levelname)s]  %(funcName)s function in %(name)s (%(asctime)s):  %(message)s",
@@ -172,6 +177,7 @@ def main(args=None):
         matcher_choice=args.matcher,
         optic_flow_method=args.optic_flow_choice,
     )
+    stream_handler.setLevel(logging.WARNING)
     mapper = EgocentricMapper(**mapper_kwargs)
     gaze_csv_path = mapper.map_gaze(
         refresh_time_thrshld=args.refresh_time_thrshld,

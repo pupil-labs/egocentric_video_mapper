@@ -143,23 +143,26 @@ class OpticFlowCalculatorLK(OpticFlowCalculatorBase):
     Args:
         video_path (str): Path to the video file.
         grid_spacing (int, optional): Spacing between grid points to track. Defaults to 50. The smaller the spacing, the more points are tracked and the more time expensive the calculation is.
-        params (dict, optional): Parameters for the Lucas-Kanade method. Defaults to {'winSize': (15, 15), 'maxLevel': 2, 'criteria': (cv.TERM_CRITERIA_EPS | cv.TERM_CRITERIA_COUNT, 10, 0.03)}.
+        params (dict, optional): Parameters for the Lucas-Kanade method, check OpenCV documentation. Defaults to {'winSize': (15, 15), 'maxLevel': 2, 'criteria': (cv.TERM_CRITERIA_EPS | cv.TERM_CRITERIA_COUNT, 10, 0.03)}.
     """
 
     def __init__(
         self,
         video_path,
         grid_spacing=50,
-        params={
-            "winSize": (15, 15),
-            "maxLevel": 2,
-            "criteria": (cv.TERM_CRITERIA_EPS | cv.TERM_CRITERIA_COUNT, 10, 0.03),
-        },
+        params=None,
     ):
         super().__init__(video_path)
         self.grid_spacing = grid_spacing
-        self.lk_params = params
         self.grid_points = self._create_grid_points()
+        if params is None:
+            self.lk_params = {
+                "winSize": (15, 15),
+                "maxLevel": 2,
+                "criteria": (cv.TERM_CRITERIA_EPS | cv.TERM_CRITERIA_COUNT, 10, 0.03),
+            }
+        else:
+            self.lk_params = params
 
     def _create_grid_points(self):
         xx, yy = np.mgrid[
@@ -218,18 +221,21 @@ class OpticFlowCalculatorFarneback(OpticFlowCalculatorBase):
     def __init__(
         self,
         video_path,
-        params={
-            "pyr_scale": 0.5,
-            "levels": 3,
-            "winsize": 15,
-            "iterations": 3,
-            "poly_n": 5,
-            "poly_sigma": 1.2,
-            "flags": 0,
-        },
+        params=None,
     ):
         super().__init__(video_path)
-        self.farneback_params = params
+        if params is None:
+            self.farneback_params = {
+                "pyr_scale": 0.5,
+                "levels": 3,
+                "winsize": 15,
+                "iterations": 3,
+                "poly_n": 5,
+                "poly_sigma": 1.2,
+                "flags": 0,
+            }
+        else:
+            self.farneback_params = params
 
     def _calculate_optic_flow_between_frames(
         self, first_frame, second_frame, first_ts=None, second_ts=None

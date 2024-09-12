@@ -48,7 +48,7 @@ class EgocentricMapper:
 
         self.neon_vid_ts_nanosec = pd.read_csv(neon_timestamps)
         self.alt_vid_ts_nanosec = pd.read_csv(alternative_timestamps)
-        self.alt2neon_offset = (
+        self.alt2neon_offset_sec = (
             self.alt_vid_ts_nanosec["timestamp [ns]"].values[0]
             - self.neon_vid_ts_nanosec["timestamp [ns]"].values[0]
         ) / 1e9
@@ -166,12 +166,10 @@ class EgocentricMapper:
                     self.alt_fov,
                     np.array([self.alt_video.height, self.alt_video.width]),
                 )
-
             # Neon recording might have some gray frames at the beginning of it.In this case, no feature matching is possible.
             if np.all(neon_frame == 100):
                 self.logger.warning(f"Neon frame is all gray")
                 gaze_alt_camera = gaze_neon.copy()
-
             else:
                 refresh_needed = self._check_if_refresh_needed(
                     gaze_idx,
@@ -217,7 +215,7 @@ class EgocentricMapper:
                     gaze_alt_camera,
                     alt_rel_ts,
                     self.alt_opticflow,
-                    gaze_rel_ts - self.alt2neon_offset,
+                    gaze_rel_ts - self.alt2neon_offset_sec,
                 )
 
             self.logger.info(f"({gaze_idx}) Gaze mapped to {gaze_alt_camera}")
@@ -461,7 +459,6 @@ class EgocentricMapper:
             )
             if mask.ravel().sum() == 0:
                 self.logger.error("No inliers found, using previous transformation")
-                # may be better to not do this, rather just not map the gaze and leave it empty
                 self.gaze_transformation = prev_transformation
         except cv.error:
             self.logger.error(

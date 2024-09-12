@@ -304,15 +304,17 @@ class EfficientLoFTRImageMatcher(ImageMatcher):
 
         self.image_matcher = eLoFTR(config=_default_cfg)
         try:
-            self.image_matcher.load_state_dict(
-                torch.load(
-                    Path(__file__).parent
-                    / "efficient_loftr/weights/eloftr_outdoor.ckpt"
-                )["state_dict"]
+            weights_path = (
+                Path(__file__).parent / "efficient_loftr/weights/eloftr_outdoor.ckpt"
             )
-        except FileNotFoundError:
             self.image_matcher.load_state_dict(
-                torch.load(os.environ.get("efficentloftr_weights"))["state_dict"]
+                torch.load(weights_path, map_location=self._device)["state_dict"]
+            )
+        # If the weights are not found in the current directory, it tries to find them in user-set environment variable
+        except FileNotFoundError:
+            weights_path = os.environ.get("efficentloftr_weights")
+            self.image_matcher.load_state_dict(
+                torch.load(weights_path, map_location=self._device)["state_dict"]
             )
         self.image_matcher = reparameter(self.image_matcher)
         self.image_matcher = self.image_matcher.eval().to(self._device)

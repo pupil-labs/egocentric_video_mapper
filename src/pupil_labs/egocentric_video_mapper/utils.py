@@ -118,7 +118,7 @@ def generate_mapper_kwargs(
     output_dir,
     matcher_choice,
     optic_flow_method,
-    logging_level="INFO",
+    logging_level="WARNING",
 ):
     matcher_choice = matcher_choice.lower()
     image_matcher_parameters = {

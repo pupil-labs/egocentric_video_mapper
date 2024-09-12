@@ -3,17 +3,19 @@ import logging
 import sys
 from pathlib import Path
 
-from gaze_mapper import EgocentricMapper
-from optic_flow import calculate_optic_flow
 from rich.logging import RichHandler
-from sync_videos import OffsetCalculator
-from utils import (
+
+from pupil_labs.egocentric_video_mapper.gaze_mapper import EgocentricMapper
+from pupil_labs.egocentric_video_mapper.optic_flow import calculate_optic_flow
+from pupil_labs.egocentric_video_mapper.sync_videos import OffsetCalculator
+from pupil_labs.egocentric_video_mapper.utils import (
     generate_comparison_video_kwargs,
     generate_mapper_kwargs,
     write_timestamp_csv,
 )
-from video_handler import VideoHandler
-from video_renderer import save_comparison_video, save_gaze_video
+
+from .video_handler import VideoHandler
+from .video_renderer import save_comparison_video, save_gaze_video
 
 
 def align_videos(

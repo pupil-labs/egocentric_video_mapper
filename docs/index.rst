@@ -7,7 +7,7 @@ Welcome to |project| documentation!
    history
 
 
-.. automodule:: action_cam_mapper
+.. automodule:: egocentric_video_mapper
     :members:
     :undoc-members:
     :show-inheritance:

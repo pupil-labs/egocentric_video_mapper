@@ -4,9 +4,10 @@ from pathlib import Path
 import cv2 as cv
 import numpy as np
 import pandas as pd
-from feature_matcher import get_matcher
 from tqdm import tqdm
-from video_handler import VideoHandler
+
+from pupil_labs.egocentric_video_mapper.feature_matcher import get_matcher
+from pupil_labs.egocentric_video_mapper.video_handler import VideoHandler
 
 
 class EgocentricMapper:

@@ -6,9 +6,14 @@ import cv2 as cv
 import kornia
 import numpy as np
 import torch
-from efficient_loftr.src.loftr import LoFTR as eLoFTR
-from efficient_loftr.src.loftr import full_default_cfg, opt_default_cfg, reparameter
 from torchvision import transforms
+
+from pupil_labs.egocentric_video_mapper.efficient_loftr.src.loftr import LoFTR as eLoFTR
+from pupil_labs.egocentric_video_mapper.efficient_loftr.src.loftr import (
+    full_default_cfg,
+    opt_default_cfg,
+    reparameter,
+)
 
 
 class ImageMatcher(ABC):

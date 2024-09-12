@@ -7,7 +7,8 @@ import cv2 as cv
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
-from video_handler import VideoHandler
+
+from pupil_labs.egocentric_video_mapper.video_handler import VideoHandler
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)

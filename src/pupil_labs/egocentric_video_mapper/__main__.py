@@ -106,7 +106,16 @@ def main(args=None):
             help="Render video from alternative camera with gaze overlay.",
             default=False,
         )
-        parser.add_argument("--logging_level", default="INFO", help="Logging level")
+        parser.add_argument(
+            "--logging_level_stream",
+            default="ERROR",
+            help="Logging level for printing to console",
+        )
+        parser.add_argument(
+            "--logging_level_file",
+            default="INFO",
+            help="Logging level for saving to log file",
+        )
 
         args = parser.parse_args()
     try:
@@ -128,6 +137,12 @@ def main(args=None):
     except AttributeError:
         args.optic_flow_thrshld = None
 
+    # check if logging level exists
+    if not hasattr(args, "logging_level_stream"):
+        args.logging_level_stream = "WARNING"
+    if not hasattr(args, "logging_level_file"):
+        args.logging_level_file = "WARNING"
+
     Path(args.output_dir).mkdir(parents=True, exist_ok=True)
 
     stream_handler = logging.StreamHandler(sys.stdout)
@@ -147,7 +162,7 @@ def main(args=None):
             stream_handler,
         ],
         datefmt="%m/%d/%Y %I:%M:%S %p",
-        level=logging.INFO,
+        level=args.logging_level_file,
     )
     logger = logging.getLogger(__name__)
     logger.info(
@@ -181,9 +196,9 @@ def main(args=None):
         output_dir=args.output_dir,
         matcher_choice=args.matcher,
         optic_flow_method=args.optic_flow_choice,
-        logging_level="INFO",
+        logging_level=args.logging_level_file,
     )
-    stream_handler.setLevel(args.logging_level)
+    stream_handler.setLevel(args.logging_level_stream)
     mapper = EgocentricMapper(**mapper_kwargs)
     gaze_csv_path = mapper.map_gaze(
         refresh_time_thrshld=args.refresh_time_thrshld,

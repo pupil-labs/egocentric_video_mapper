@@ -16,6 +16,8 @@ from pupil_labs.egocentric_video_mapper.efficient_loftr.src.loftr import (
     reparameter,
 )
 
+EFFICIENT_LOFTR_WEIGHTS = os.environ.get("efficentloftr_weights")
+
 
 class ImageMatcher(ABC):
     def __init__(self, gpu_num=None):
@@ -304,17 +306,19 @@ class EfficientLoFTRImageMatcher(ImageMatcher):
 
         self.image_matcher = eLoFTR(config=_default_cfg)
         try:
-            weights_path = (
-                Path(__file__).parent / "efficient_loftr/weights/eloftr_outdoor.ckpt"
-            )
             self.image_matcher.load_state_dict(
-                torch.load(weights_path, map_location=self._device)["state_dict"]
+                torch.load(
+                    Path(__file__).parent
+                    / "efficient_loftr/weights/eloftr_outdoor.ckpt",
+                    map_location=self._device,
+                )["state_dict"]
             )
         # If the weights are not found in the current directory, it tries to find them in user-set environment variable
-        except FileNotFoundError:
-            weights_path = os.environ.get("efficentloftr_weights")
+        except:
             self.image_matcher.load_state_dict(
-                torch.load(weights_path, map_location=self._device)["state_dict"]
+                torch.load(EFFICIENT_LOFTR_WEIGHTS, map_location=self._device)[
+                    "state_dict"
+                ]
             )
         self.image_matcher = reparameter(self.image_matcher)
         self.image_matcher = self.image_matcher.eval().to(self._device)

@@ -3,8 +3,6 @@ import logging
 import sys
 from pathlib import Path
 
-from rich.logging import RichHandler
-
 from pupil_labs.egocentric_video_mapper.gaze_mapper import EgocentricMapper
 from pupil_labs.egocentric_video_mapper.optic_flow import calculate_optic_flow
 from pupil_labs.egocentric_video_mapper.sync_videos import OffsetCalculator
@@ -108,6 +106,7 @@ def main(args=None):
             help="Render video from alternative camera with gaze overlay.",
             default=False,
         )
+        parser.add_argument("--logging_level", default="INFO", help="Logging level")
 
         args = parser.parse_args()
     try:
@@ -138,11 +137,7 @@ def main(args=None):
             "[%(levelname)s] %(funcName)s function in %(name)s: %(message)s"
         )
     )
-    # stream_handler = RichHandler()
-    # stream_handler.setLevel(logging.INFO)
-    # stream_handler.setFormatter(
-    #     logging.Formatter("%(funcName)s in %(name)s: %(message)s")
-    # )
+
     logging.basicConfig(
         format="[%(levelname)s]  %(funcName)s function in %(name)s (%(asctime)s):  %(message)s",
         handlers=[
@@ -186,7 +181,7 @@ def main(args=None):
         output_dir=args.output_dir,
         matcher_choice=args.matcher,
         optic_flow_method=args.optic_flow_choice,
-        logging_level="INFO",
+        logging_level=args.logging_level,
     )
     stream_handler.setLevel(logging.WARNING)
     mapper = EgocentricMapper(**mapper_kwargs)

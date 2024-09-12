@@ -118,6 +118,7 @@ def generate_mapper_kwargs(
     output_dir,
     matcher_choice,
     optic_flow_method,
+    logging_level="INFO",
 ):
     matcher_choice = matcher_choice.lower()
     image_matcher_parameters = {
@@ -126,7 +127,7 @@ def generate_mapper_kwargs(
         "disk_lightglue": {"num_features": 2048, "gpu_num": 0},
         "dedode_lightglue": {"num_features": 5000, "gpu_num": 0},
     }
-    # Video file name in the TimeSeries +
+    # Video file name in the Time Series + Video Scene
     neon_vid_path = next(Path(neon_timeseries_dir).rglob("*.mp4"))
 
     alternative_timestamps_path = Path(output_dir, "alternative_camera_timestamps.csv")
@@ -159,7 +160,7 @@ def generate_mapper_kwargs(
             output_dir, f"mapped_gaze/{matcher_choice}_{optic_flow_method.lower()}"
         ),
         "patch_size": 1000,
-        "logging_level": "INFO",
+        "logging_level": logging_level,
     }
     return mapper_kwargs
 

@@ -169,7 +169,7 @@ class EgocentricMapper:
                 )
             # Neon recording might have some gray frames at the beginning of it.In this case, no feature matching is possible.
             if np.all(neon_frame == 100):
-                self.logger.warning(f"Neon frame is all gray")
+                self.logger.info(f"Neon frame is all gray")
                 gaze_alt_camera = gaze_neon.copy()
             else:
                 refresh_needed = self._check_if_refresh_needed(

@@ -186,9 +186,10 @@ def main(args=None):
         output_dir=args.output_dir,
         matcher_choice=args.matcher,
         optic_flow_method=args.optic_flow_choice,
+        logging_level="INFO",
     )
     stream_handler.setLevel(logging.WARNING)
-    mapper = EgocentricMapper(**mapper_kwargs, logging_level="INFO")
+    mapper = EgocentricMapper(**mapper_kwargs)
     gaze_csv_path = mapper.map_gaze(
         refresh_time_thrshld=args.refresh_time_thrshld,
         optic_flow_thrshld=args.optic_flow_thrshld,

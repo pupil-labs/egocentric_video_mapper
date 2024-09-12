@@ -181,9 +181,9 @@ def main(args=None):
         output_dir=args.output_dir,
         matcher_choice=args.matcher,
         optic_flow_method=args.optic_flow_choice,
-        logging_level=args.logging_level,
+        logging_level="INFO",
     )
-    stream_handler.setLevel(logging.WARNING)
+    stream_handler.setLevel(args.logging_level)
     mapper = EgocentricMapper(**mapper_kwargs)
     gaze_csv_path = mapper.map_gaze(
         refresh_time_thrshld=args.refresh_time_thrshld,
@@ -217,5 +217,5 @@ def main(args=None):
 
 if __name__ == "__main__":
     # minimal example
-    # python -m pupil_labs.action_cam_mapper --neon_timeseries_dir /users/sof/video_examples/second_video/2024-05-23_16-47-35-a666ea62 --alternative_vid_path /users/sof/video_examples/second_video/20240523_171941_000.mp4 --output_dir /users/sof/action_map_experiments/output5 --optic_flow_choice Lucas-Kanade --matcher Efficient_LOFTR --refresh_time_thrshld 0.5 --optic_flow_thrshld None --gaze_change_thrshld 0 --render_comparison_video False --render_video False
+    # python -m pupil_labs.egocentric_video_mapper --neon_timeseries_dir /users/sof/video_examples/second_video/2024-05-23_16-47-35-a666ea62 --alternative_vid_path /users/sof/video_examples/second_video/20240523_171941_000.mp4 --output_dir /users/sof/action_map_experiments/output5 --optic_flow_choice Lucas-Kanade --matcher Efficient_LOFTR --refresh_time_thrshld 0.5 --optic_flow_thrshld 0 --gaze_change_thrshld 0 --render_comparison_video False --render_video False
     main()

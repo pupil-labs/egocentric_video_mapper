@@ -1,3 +1,4 @@
+import os
 from abc import ABC, abstractmethod
 from copy import deepcopy
 from pathlib import Path
@@ -302,12 +303,17 @@ class EfficientLoFTRImageMatcher(ImageMatcher):
             _default_cfg = deepcopy(opt_default_cfg)
 
         self.image_matcher = eLoFTR(config=_default_cfg)
-        print(Path(__file__))
-        self.image_matcher.load_state_dict(
-            torch.load(
-                Path(__file__).parent / "efficient_loftr/weights/eloftr_outdoor.ckpt"
-            )["state_dict"]
-        )
+        try:
+            self.image_matcher.load_state_dict(
+                torch.load(
+                    Path(__file__).parent
+                    / "efficient_loftr/weights/eloftr_outdoor.ckpt"
+                )["state_dict"]
+            )
+        except FileNotFoundError:
+            self.image_matcher.load_state_dict(
+                torch.load(os.environ.get("efficentloftr_weights"))["state_dict"]
+            )
         self.image_matcher = reparameter(self.image_matcher)
         self.image_matcher = self.image_matcher.eval().to(self._device)
 

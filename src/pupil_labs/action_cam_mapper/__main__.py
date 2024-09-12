@@ -25,9 +25,9 @@ def align_videos(
 ):
     offset_calc = OffsetCalculator(
         src=alternative_result["dy"].values,
-        src_timestamps=alternative_result["start"].values,
+        src_timestamps_sec=alternative_result["start"].values,
         dst=neon_result["dy"].values,
-        dst_timestamps=neon_result["start"].values,
+        dst_timestamps_sec=neon_result["start"].values,
         resampling_frequency=500,
     )
     t_offset, pearson_corr = offset_calc.estimate_time_offset()

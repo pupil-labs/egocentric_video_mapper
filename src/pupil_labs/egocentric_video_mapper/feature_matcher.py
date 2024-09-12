@@ -311,23 +311,14 @@ class EfficientLoFTRImageMatcher(ImageMatcher):
                     map_location=self._device,
                 )["state_dict"]
             )
-        # If the weights are not found in the current directory, it tries to find them in user-set environment variable
+        # Exception created for running in google colab
         except:
-            try:
-                EFFICIENT_LOFTR_WEIGHTS = os.environ.get("efficentloftr_weights")
-                self.image_matcher.load_state_dict(
-                    torch.load(EFFICIENT_LOFTR_WEIGHTS, map_location=self._device)[
-                        "state_dict"
-                    ]
-                )
-            except:
-                print("Explore")
-                self.image_matcher.load_state_dict(
-                    torch.load(
-                        "/content/egocentric_video_mapper/src/pupil_labs/egocentric_video_mapper/efficient_loftr/weights/eloftr_outdoor.ckpt",
-                        map_location=self._device,
-                    )["state_dict"]
-                )
+            self.image_matcher.load_state_dict(
+                torch.load(
+                    "/content/egocentric_video_mapper/src/pupil_labs/egocentric_video_mapper/efficient_loftr/weights/eloftr_outdoor.ckpt",
+                    map_location=self._device,
+                )["state_dict"]
+            )
         self.image_matcher = reparameter(self.image_matcher)
         self.image_matcher = self.image_matcher.eval().to(self._device)
 

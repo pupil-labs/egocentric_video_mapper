@@ -110,31 +110,39 @@ def main(args=None):
         )
 
         args = parser.parse_args()
-
-    args.gaze_change_thrshld = (
-        None if args.gaze_change_thrshld == 0 else args.gaze_change_thrshld
-    )
-    args.refresh_time_thrshld = (
-        None if args.refresh_time_thrshld == 0 else args.refresh_time_thrshld
-    )
-    args.optic_flow_thrshld = (
-        None if args.optic_flow_thrshld == 0 else args.optic_flow_thrshld
-    )
+    try:
+        args.gaze_change_thrshld = (
+            None if args.gaze_change_thrshld == 0 else args.gaze_change_thrshld
+        )
+    except AttributeError:
+        args.gaze_change_thrshld = None
+    try:
+        args.refresh_time_thrshld = (
+            None if args.refresh_time_thrshld == 0 else args.refresh_time_thrshld
+        )
+    except AttributeError:
+        args.refresh_time_thrshld = None
+    try:
+        args.optic_flow_thrshld = (
+            None if args.optic_flow_thrshld == 0 else args.optic_flow_thrshld
+        )
+    except AttributeError:
+        args.optic_flow_thrshld = None
 
     Path(args.output_dir).mkdir(parents=True, exist_ok=True)
 
     stream_handler = logging.StreamHandler(sys.stdout)
-    stream_handler.setLevel(logging.WARNING)
+    stream_handler.setLevel(logging.INFO)
     stream_handler.setFormatter(
         logging.Formatter(
             "[%(levelname)s] %(funcName)s function in %(name)s: %(message)s"
         )
     )
-    stream_handler = RichHandler()
-    stream_handler.setLevel(logging.INFO)
-    stream_handler.setFormatter(
-        logging.Formatter("%(funcName)s in %(name)s: %(message)s")
-    )
+    # stream_handler = RichHandler()
+    # stream_handler.setLevel(logging.INFO)
+    # stream_handler.setFormatter(
+    #     logging.Formatter("%(funcName)s in %(name)s: %(message)s")
+    # )
     logging.basicConfig(
         format="[%(levelname)s]  %(funcName)s function in %(name)s (%(asctime)s):  %(message)s",
         handlers=[

@@ -31,8 +31,8 @@ class VideoHandler:
         return self._fps
 
     def get_frame_by_timestamp(self, timestamp):
-        timestamp, _ = self.get_closest_timestamp(timestamp)
-        pts = np.int32(np.round(timestamp * self._time_base.denominator))
+        timestamp, ts_idx = self.get_closest_timestamp(timestamp)
+        pts = self.pts[ts_idx]
         # if seeking backwards, reset the video container
         if pts < self.lpts:
             logger.info("Seeking backwards, resetting video container")
@@ -54,11 +54,12 @@ class VideoHandler:
     def _get_timestamps(self):
         container = av.open(self.path)
         video = container.streams.video[0]
-        av_timestamps = [
-            packet.pts / video.time_base.denominator
-            for packet in container.demux(video)
-            if packet.pts is not None
+        self.pts = [
+            packet.pts for packet in container.demux(video) if packet.pts is not None
         ]
+        av_timestamps = (
+            np.asarray(self.pts, dtype=np.int32) / video.time_base.denominator
+        )
         container.close()
         av_timestamps.sort()
         return np.asarray(av_timestamps, dtype=np.float32)

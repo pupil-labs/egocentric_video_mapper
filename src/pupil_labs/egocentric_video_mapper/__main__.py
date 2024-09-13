@@ -107,11 +107,6 @@ def main(args=None):
             default=False,
         )
         parser.add_argument(
-            "--logging_level_stream",
-            default="ERROR",
-            help="Logging level for printing to console",
-        )
-        parser.add_argument(
             "--logging_level_file",
             default="INFO",
             help="Logging level for saving to log file",
@@ -138,36 +133,40 @@ def main(args=None):
         args.optic_flow_thrshld = None
 
     # check if logging level exists
-    if not hasattr(args, "logging_level_stream"):
-        args.logging_level_stream = "WARNING"
     if not hasattr(args, "logging_level_file"):
-        args.logging_level_file = "WARNING"
+        args.logging_level_file = "INFO"
 
     Path(args.output_dir).mkdir(parents=True, exist_ok=True)
 
     stream_handler = logging.StreamHandler(sys.stdout)
-    stream_handler.setLevel(logging.INFO)
+    stream_handler.setLevel("INFO")
     stream_handler.setFormatter(
-        logging.Formatter(
-            "[%(levelname)s] %(funcName)s function in %(name)s: %(message)s"
+        logging.Formatter("[%(levelname)s] %(funcName)s in %(name)s: %(message)s")
+    )
+    if "/content/drive/My_Drive" in str(args.output_dir):
+        logging.basicConfig(
+            format="[%(levelname)s]  %(funcName)s function in %(name)s (%(asctime)s):  %(message)s",
+            handlers=[
+                stream_handler,
+            ],
+            datefmt="%m/%d/%Y %I:%M:%S %p",
+            level=args.logging_level_file,
         )
-    )
-
-    logging.basicConfig(
-        format="[%(levelname)s]  %(funcName)s function in %(name)s (%(asctime)s):  %(message)s",
-        handlers=[
-            logging.FileHandler(
-                Path(args.output_dir, "egocentric_mapper_pipeline.log")
-            ),
-            stream_handler,
-        ],
-        datefmt="%m/%d/%Y %I:%M:%S %p",
-        level=args.logging_level_file,
-    )
+    else:
+        logging.basicConfig(
+            format="[%(levelname)s]  %(funcName)s function in %(name)s (%(asctime)s):  %(message)s",
+            handlers=[
+                logging.FileHandler(
+                    Path(args.output_dir, "egocentric_mapper_pipeline.log")
+                ),
+                stream_handler,
+            ],
+            datefmt="%m/%d/%Y %I:%M:%S %p",
+            level=args.logging_level_file,
+        )
     logger = logging.getLogger(__name__)
     logger.info(
-        "[white bold on #0d122a]◎ Egocentric Mapper Module by Pupil Labs[/]",
-        extra={"markup": True},
+        "◎ Egocentric Mapper Module by Pupil Labs[/]",
     )
     logger.info(
         f"Results will be saved in {args.output_dir} unless specified otherwise by message."
@@ -198,14 +197,15 @@ def main(args=None):
         optic_flow_method=args.optic_flow_choice,
         logging_level=args.logging_level_file,
     )
-    stream_handler.setLevel(args.logging_level_stream)
+    stream_handler.setLevel("ERROR")
     mapper = EgocentricMapper(**mapper_kwargs)
     gaze_csv_path = mapper.map_gaze(
         refresh_time_thrshld=args.refresh_time_thrshld,
         optic_flow_thrshld=args.optic_flow_thrshld,
         gaze_change_thrshld=args.gaze_change_thrshld,
     )
-
+    stream_handler.setLevel("INFO")
+    logger.info(f"Gaze mapped to alternative camera video saved at {gaze_csv_path}")
     if args.render_comparison_video:
         comparison_kwargs = generate_comparison_video_kwargs(
             neon_timeseries_dir=args.neon_timeseries_dir,

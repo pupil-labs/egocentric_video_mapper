@@ -238,10 +238,11 @@ class EgocentricMapper:
 
     def _create_alternative_gaze_df(self):
         """Creates a DataFrame with the same formatting as the neon_gaze DataFrame, the 'gaze x [px]',
-        'gaze y [px]', 'azimuth [deg]' and 'elevation [deg]' columns are filled with None values, while the rest of the columns keep the same values as the neon_gaze DataFrame.
+        'gaze y [px]' columns are filled with None values, the 'azimuth [deg]' and 'elevation [deg]' columns
+        are dropped, the rest of the columns keep the same values as the neon_gaze DataFrame.
 
         Returns:
-            DataFrame: A DataFrame with the same formatting as the neon_gaze DataFrame
+            DataFrame: A DataFrame with similar formatting as the neon_gaze DataFrame
         """
         alt_gaze_dataframe = pd.DataFrame.from_dict(
             {
@@ -249,7 +250,9 @@ class EgocentricMapper:
                 for col in self.neon_gaze.columns
             }
         )
-
+        alt_gaze_dataframe = alt_gaze_dataframe.drop(
+            ["azimuth [deg]", "elevation [deg]"], axis=1
+        )
         alt_gaze_dataframe[
             [
                 "section id",

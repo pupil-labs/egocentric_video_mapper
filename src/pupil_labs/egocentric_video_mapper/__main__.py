@@ -41,78 +41,78 @@ def align_videos(
     )
 
 
-def main(args=None):
-    if args is None:
-        parser = argparse.ArgumentParser(
-            description="Running whole pipeline for alternative egocentric camera gaze mapping"
-        )
+def init_parser():
+    parser = argparse.ArgumentParser(description="Pupil Labs - Egocentric Video Mapper")
 
-        parser.add_argument(
-            "--neon_timeseries_dir",
-            type=Path,
-            help="Path to the uncompressed Neon 'Timeseries Data + Scene Video' directory.",
-        )
+    parser.add_argument(
+        "--neon_timeseries_dir",
+        type=Path,
+        help="Path to the uncompressed Neon 'Timeseries Data + Scene Video' directory.",
+    )
 
-        parser.add_argument(
-            "--alternative_vid_path",
-            type=Path,
-            help="Alternative egocentric video path.",
-        )
+    parser.add_argument(
+        "--alternative_vid_path",
+        type=Path,
+        help="Alternative egocentric video path.",
+    )
 
-        parser.add_argument("--output_dir", type=Path, help="Output directory.")
+    parser.add_argument("--output_dir", type=Path, help="Output directory.")
 
-        parser.add_argument(
-            "--optic_flow_choice",
-            choices=["Lucas-Kanade", "Farneback"],
-            default="Lucas-Kanade",
-        )
+    parser.add_argument(
+        "--optic_flow_choice",
+        choices=["Lucas-Kanade", "Farneback"],
+        default="Lucas-Kanade",
+    )
 
-        parser.add_argument(
-            "--matcher",
-            choices=["Efficient_LOFTR", "LOFTR", "DISK_LightGlue", "DeDoDe_LightGlue"],
-            default="Efficient_LOFTR",
-            help="Image matcher to use in Egocentric Mapper.",
-        )
+    parser.add_argument(
+        "--matcher",
+        choices=["Efficient_LOFTR", "LOFTR", "DISK_LightGlue", "DeDoDe_LightGlue"],
+        default="Efficient_LOFTR",
+        help="Image matcher to use in Egocentric Mapper.",
+    )
 
-        parser.add_argument(
-            "--refresh_time_thrshld",
-            type=float,
-            help="Refresh time threshold.",
-            default=None,
-        )
-        parser.add_argument(
-            "--optic_flow_thrshld",
-            type=float,
-            help="Optic Flow threshold in deg.",
-            default=None,
-        )
-        parser.add_argument(
-            "--gaze_change_thrshld",
-            type=float,
-            help="Gaze change threshold in deg.",
-            default=None,
-        )
+    parser.add_argument(
+        "--refresh_time_thrshld",
+        type=float,
+        help="Refresh time threshold.",
+        default=None,
+    )
+    parser.add_argument(
+        "--optic_flow_thrshld",
+        type=float,
+        help="Optic Flow threshold in deg.",
+        default=None,
+    )
+    parser.add_argument(
+        "--gaze_change_thrshld",
+        type=float,
+        help="Gaze change threshold in deg.",
+        default=None,
+    )
 
-        parser.add_argument(
-            "--render_comparison_video",
-            type=bool,
-            help="Render video comparing Neon Scene and alternative camera with gaze overlays.",
-            default=False,
-        )
+    parser.add_argument(
+        "--render_comparison_video",
+        type=bool,
+        help="Render video comparing Neon Scene and alternative camera with gaze overlays.",
+        default=False,
+    )
 
-        parser.add_argument(
-            "--render_video",
-            type=bool,
-            help="Render video from alternative camera with gaze overlay.",
-            default=False,
-        )
-        parser.add_argument(
-            "--logging_level_file",
-            default="INFO",
-            help="Logging level for saving to log file",
-        )
+    parser.add_argument(
+        "--render_video",
+        type=bool,
+        help="Render video from alternative camera with gaze overlay.",
+        default=False,
+    )
+    parser.add_argument(
+        "--logging_level_file",
+        default="INFO",
+        help="Logging level for saving to log file",
+    )
 
-        args = parser.parse_args()
+    return parser
+
+
+def check_and_correct_args(args):
     try:
         args.gaze_change_thrshld = (
             None if args.gaze_change_thrshld == 0 else args.gaze_change_thrshld
@@ -131,39 +131,31 @@ def main(args=None):
         )
     except AttributeError:
         args.optic_flow_thrshld = None
-
     # check if logging level exists
     if not hasattr(args, "logging_level_file"):
         args.logging_level_file = "INFO"
 
+    return args
+
+
+def main(args=None):
+    if args is None:
+        parser = init_parser()
+        args = parser.parse_args()
+    args = check_and_correct_args(args)
+
     Path(args.output_dir).mkdir(parents=True, exist_ok=True)
 
-    stream_handler = logging.StreamHandler(sys.stdout)
-    stream_handler.setLevel("INFO")
-    stream_handler.setFormatter(
-        logging.Formatter("[%(levelname)s] %(funcName)s in %(name)s: %(message)s")
+    logging.basicConfig(
+        format="[%(levelname)s]  %(funcName)s function in %(name)s (%(asctime)s):  %(message)s",
+        handlers=[
+            logging.FileHandler(
+                Path(args.output_dir, "egocentric_mapper_pipeline.log")
+            ),
+        ],
+        datefmt="%m/%d/%Y %I:%M:%S %p",
+        level=args.logging_level_file,
     )
-    if "/content/drive/My_Drive" in str(args.output_dir):
-        logging.basicConfig(
-            format="[%(levelname)s]  %(funcName)s function in %(name)s (%(asctime)s):  %(message)s",
-            handlers=[
-                stream_handler,
-            ],
-            datefmt="%m/%d/%Y %I:%M:%S %p",
-            level=args.logging_level_file,
-        )
-    else:
-        logging.basicConfig(
-            format="[%(levelname)s]  %(funcName)s function in %(name)s (%(asctime)s):  %(message)s",
-            handlers=[
-                logging.FileHandler(
-                    Path(args.output_dir, "egocentric_mapper_pipeline.log")
-                ),
-                stream_handler,
-            ],
-            datefmt="%m/%d/%Y %I:%M:%S %p",
-            level=args.logging_level_file,
-        )
     logger = logging.getLogger(__name__)
     logger.info(
         "◎ Egocentric Mapper Module by Pupil Labs[/]",
@@ -197,15 +189,15 @@ def main(args=None):
         optic_flow_method=args.optic_flow_choice,
         logging_level=args.logging_level_file,
     )
-    stream_handler.setLevel("ERROR")
+
     mapper = EgocentricMapper(**mapper_kwargs)
     gaze_csv_path = mapper.map_gaze(
         refresh_time_thrshld=args.refresh_time_thrshld,
         optic_flow_thrshld=args.optic_flow_thrshld,
         gaze_change_thrshld=args.gaze_change_thrshld,
     )
-    stream_handler.setLevel("INFO")
-    logger.info(f"Gaze mapped to alternative camera video saved at {gaze_csv_path}")
+
+    print(f"Gaze mapped to alternative camera video saved at {gaze_csv_path}")
     if args.render_comparison_video:
         comparison_kwargs = generate_comparison_video_kwargs(
             neon_timeseries_dir=args.neon_timeseries_dir,
@@ -232,5 +224,5 @@ def main(args=None):
 
 if __name__ == "__main__":
     # minimal example
-    # python -m pupil_labs.egocentric_video_mapper --neon_timeseries_dir /users/sof/video_examples/second_video/2024-05-23_16-47-35-a666ea62 --alternative_vid_path /users/sof/video_examples/second_video/20240523_171941_000.mp4 --output_dir /users/sof/action_map_experiments/output5 --optic_flow_choice Lucas-Kanade --matcher Efficient_LOFTR --refresh_time_thrshld 0.5 --optic_flow_thrshld 0 --gaze_change_thrshld 0 --render_comparison_video False --render_video False
+    # python -m pupil_labs.egocentric_video_mapper --neon_timeseries_dir /users/sof/video_examples/second_video/2024-05-23_16-47-35-a666ea62 --alternative_vid_path "/users/sof/video_examples/second_video/20240523_171941_000.mp4" --output_dir /users/sof/test_main/filter_issue --optic_flow_choice Lucas-Kanade --matcher Efficient_LOFTR --refresh_time_thrshld 0.5 --optic_flow_thrshld 0 --gaze_change_thrshld 0 --render_comparison_video False --render_video False
     main()

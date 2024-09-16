@@ -8,8 +8,6 @@ from tqdm import tqdm
 
 from pupil_labs.egocentric_video_mapper.video_handler import VideoHandler
 
-FONT_CHOICE = cv.FONT_HERSHEY_SIMPLEX
-
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.WARNING)
 
@@ -364,7 +362,7 @@ def _write_text_on_frame(
     frame,
     text,
     position,
-    font=FONT_CHOICE,
+    font=cv.FONT_HERSHEY_SIMPLEX,
     color=(0, 0, 0),
     thickness=4,
     size=3,

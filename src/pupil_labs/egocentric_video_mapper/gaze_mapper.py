@@ -431,7 +431,7 @@ class EgocentricMapper:
             kept_idx = distance_to_point < radius
             if np.count_nonzero(kept_idx) > 100:
                 self.logger.info(
-                    f"Patch size reduced to {radius*2} with {len(kept_idx)} correspondences"
+                    f"Patch size reduced to {radius*2} with {np.count_nonzero(kept_idx)} correspondences"
                 )
                 for name in correspondences.keys():
                     correspondences[name] = correspondences[name][kept_idx]

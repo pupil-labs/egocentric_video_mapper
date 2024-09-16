@@ -16,6 +16,17 @@ from .video_handler import VideoHandler
 from .video_renderer import save_comparison_video, save_gaze_video
 
 
+def str2bool(v):
+    if isinstance(v, bool):
+        return v
+    if v.lower() in ("yes", "true", "t", "y", "1"):
+        return True
+    elif v.lower() in ("no", "false", "f", "n", "0"):
+        return False
+    else:
+        raise argparse.ArgumentTypeError("Boolean value expected.")
+
+
 def align_videos(
     alternative_result,
     neon_result,
@@ -92,14 +103,14 @@ def init_parser():
 
     parser.add_argument(
         "--render_comparison_video",
-        type=bool,
+        type=str2bool,
         help="Render video comparing Neon Scene and alternative camera with gaze overlays.",
         default=False,
     )
 
     parser.add_argument(
         "--render_video",
-        type=bool,
+        type=str2bool,
         help="Render video from alternative camera with gaze overlay.",
         default=False,
     )
@@ -131,7 +142,6 @@ def check_and_correct_args(args):
         )
     except AttributeError:
         args.optic_flow_thrshld = None
-    # check if logging level exists
     if not hasattr(args, "logging_level_file"):
         args.logging_level_file = "INFO"
 
@@ -148,11 +158,7 @@ def main(args=None):
 
     logging.basicConfig(
         format="[%(levelname)s]  %(funcName)s function in %(name)s (%(asctime)s):  %(message)s",
-        handlers=[
-            logging.FileHandler(
-                Path(args.output_dir, "egocentric_mapper_pipeline.log")
-            ),
-        ],
+        filename=Path(args.output_dir, "egocentric_mapper_pipeline.log"),
         datefmt="%m/%d/%Y %I:%M:%S %p",
         level=args.logging_level_file,
     )

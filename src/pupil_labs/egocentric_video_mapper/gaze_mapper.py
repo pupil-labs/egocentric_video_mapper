@@ -244,7 +244,7 @@ class EgocentricMapper:
         Returns:
             DataFrame: A DataFrame with similar formatting as the neon_gaze DataFrame
         """
-        alt_gaze_dataframe = pd.DataFrame.from_dict(
+        alt_gaze_dataframe = pd.DataFrame(
             {
                 col: [None for _ in self.neon_gaze["timestamp [ns]"].values]
                 for col in self.neon_gaze.columns

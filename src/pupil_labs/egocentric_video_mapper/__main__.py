@@ -143,7 +143,7 @@ def check_and_correct_args(args):
     except AttributeError:
         args.optic_flow_thrshld = None
     if not hasattr(args, "logging_level_file"):
-        args.logging_level_file = "INFO"
+        args.logging_level_file = "ERROR"
 
     return args
 
@@ -155,16 +155,17 @@ def main(args=None):
     args = check_and_correct_args(args)
 
     Path(args.output_dir).mkdir(parents=True, exist_ok=True)
-
+    logger = logging.getLogger(__name__)
     logging.basicConfig(
-        format="[%(levelname)s]  %(funcName)s function in %(name)s (%(asctime)s):  %(message)s",
         filename=Path(args.output_dir, "egocentric_mapper_pipeline.log"),
+        filemode="a",
+        format="[%(levelname)s]  %(funcName)s function in %(name)s (%(asctime)s):  %(message)s",
         datefmt="%m/%d/%Y %I:%M:%S %p",
         level=args.logging_level_file,
     )
-    logger = logging.getLogger(__name__)
+
     logger.info(
-        "◎ Egocentric Mapper Module by Pupil Labs[/]",
+        "◎ Egocentric Mapper Module by Pupil Labs",
     )
     logger.info(
         f"Results will be saved in {args.output_dir} unless specified otherwise by message."
@@ -229,6 +230,6 @@ def main(args=None):
 
 
 if __name__ == "__main__":
-    # minimal example
-    # python -m pupil_labs.egocentric_video_mapper --neon_timeseries_dir /users/sof/video_examples/second_video/2024-05-23_16-47-35-a666ea62 --alternative_vid_path "/users/sof/video_examples/second_video/20240523_171941_000.mp4" --output_dir /users/sof/test_main/filter_issue --optic_flow_choice Lucas-Kanade --matcher Efficient_LOFTR --refresh_time_thrshld 0.5 --optic_flow_thrshld 0 --gaze_change_thrshld 0 --render_comparison_video False --render_video False
+    # python -m pupil_labs.egocentric_video_mapper --neon_timeseries_dir /users/sof/video_examples/second_video/2024-05-23_16-47-35-a666ea62 --alternative_vid_path "/users/sof/video_examples/second_video/20240523_171941_000.mp4" --output_dir /users/sof/test_main/filter_issue --optic_flow_choice Lucas-Kanade --matcher Efficient_LOFTR
     main()
+# asking you to restart the session

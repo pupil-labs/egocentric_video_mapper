@@ -264,7 +264,7 @@ def calculate_optic_flow(
 ):
     neon_video_path = Path(neon_timeseries_dir).rglob("*.mp4").__next__()
     optic_flow_method = optic_flow_method.lower()
-    output_dir = Path(output_dir, "optic_flow")
+    # output_dir = Path(output_dir, "optic_flow")
     Path(output_dir).mkdir(parents=True, exist_ok=True)
 
     if optic_flow_method.lower() == "farneback":
@@ -280,11 +280,13 @@ def calculate_optic_flow(
         )
 
     optic_flow_neon = neon_of.process_video(
-        output_file_path=Path(output_dir, f"neon_{optic_flow_method.lower()}.csv")
+        output_file_path=Path(
+            output_dir, f"neon_optic_flow_{optic_flow_method.lower()}.csv"
+        )
     )
     optic_flow_alternative = alternative_of.process_video(
         output_file_path=Path(
-            output_dir, f"alternative_{optic_flow_method.lower()}.csv"
+            output_dir, f"alternative_optic_flow_{optic_flow_method.lower()}.csv"
         )
     )
 

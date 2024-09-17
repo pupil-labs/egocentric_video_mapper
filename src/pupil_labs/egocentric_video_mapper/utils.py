@@ -141,24 +141,21 @@ def generate_mapper_kwargs(
             f"Please make sure the file exists either in the output directory ({output_dir}) or in the Neon timeseries directory ({neon_timeseries_dir})"
         )
 
-    optic_flow_output_dir = Path(output_dir, "optic_flow")
     mapper_kwargs = {
         "neon_gaze_csv": Path(neon_timeseries_dir, "gaze.csv"),
         "neon_video_path": neon_vid_path,
         "neon_timestamps": Path(neon_timeseries_dir, "world_timestamps.csv"),
         "neon_opticflow_csv": Path(
-            optic_flow_output_dir, f"neon_{optic_flow_method.lower()}.csv"
+            output_dir, f"neon_optic_flow_{optic_flow_method.lower()}.csv"
         ),
         "alternative_video_path": alternative_vid_path,
         "alternative_timestamps": alternative_timestamps_path,
         "alternative_opticflow_csv": Path(
-            optic_flow_output_dir, f"alternative_{optic_flow_method.lower()}.csv"
+            output_dir, f"alternative_optic_flow_{optic_flow_method.lower()}.csv"
         ),
         "image_matcher": matcher_choice,
         "image_matcher_parameters": image_matcher_parameters[matcher_choice],
-        "output_dir": Path(
-            output_dir, f"mapped_gaze/{matcher_choice}_{optic_flow_method.lower()}"
-        ),
+        "output_dir": Path(output_dir),
         "patch_size": 1000,
         "logging_level": logging_level,
     }
@@ -175,7 +172,7 @@ def generate_comparison_video_kwargs(
     neon_vid_path = next(Path(neon_timeseries_dir).rglob("*.mp4"))
     rendered_video_path = Path(
         output_dir,
-        f"rendered_videos/neon_comparison_{Path(mapped_gaze_path).parent.stem}.mp4",
+        "alternative_camera-neon_comparison.mp4",
     )
     Path(rendered_video_path).parent.mkdir(parents=True, exist_ok=True)
 

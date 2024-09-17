@@ -223,7 +223,7 @@ def main(args=None):
             "gaze_path": Path(gaze_csv_path),
             "save_video_path": Path(
                 args.output_dir,
-                f"rendered_videos/{args.matcher.lower()}_{args.optic_flow_choice.lower()}.mp4",
+                f"alternative_camera_gaze_overlay.mp4",
             ),
         }
         save_gaze_video(**gaze_video_args)

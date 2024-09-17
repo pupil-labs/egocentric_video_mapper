@@ -134,6 +134,10 @@ class OpticFlowCalculatorBase(ABC):
             subset=["start", "end"], keep="last", inplace=True
         )
         optic_flow_data.sort_values(by=["start"], inplace=True, ignore_index=True)
+        # Add a duplicate of the first row in the index 0
+        # optic_flow_data = pd.concat(
+        #     [optic_flow_data.iloc[[0]], optic_flow_data], ignore_index=True
+        # )
         optic_flow_data.to_csv(output_file_path, index=False)
         logger.info(f"Optic flow data saved to {output_file_path}")
 

@@ -55,7 +55,9 @@ class EgocentricMapper:
         ) / 1e9
 
         self.neon_opticflow = pd.read_csv(neon_opticflow_csv, dtype=np.float32)
+        self.neon_opticflow = self.neon_opticflow.iloc[1:]
         self.alt_opticflow = pd.read_csv(alternative_opticflow_csv, dtype=np.float32)
+        self.alt_opticflow = self.alt_opticflow.iloc[1:]
 
         self.neon_gaze = pd.read_csv(neon_gaze_csv)  # @ 200Hz
         self.alt_gaze = self._create_alternative_gaze_df()

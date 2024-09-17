@@ -1,4 +1,5 @@
 import argparse
+import json
 import logging
 import sys
 from pathlib import Path
@@ -57,17 +58,17 @@ def init_parser():
 
     parser.add_argument(
         "--neon_timeseries_dir",
-        type=Path,
+        type=str,
         help="Path to the uncompressed Neon 'Timeseries Data + Scene Video' directory.",
     )
 
     parser.add_argument(
         "--alternative_vid_path",
-        type=Path,
+        type=str,
         help="Alternative egocentric video path.",
     )
 
-    parser.add_argument("--output_dir", type=Path, help="Output directory.")
+    parser.add_argument("--output_dir", type=str, help="Output directory.")
 
     parser.add_argument(
         "--optic_flow_choice",
@@ -155,6 +156,9 @@ def main(args=None):
     args = check_and_correct_args(args)
 
     Path(args.output_dir).mkdir(parents=True, exist_ok=True)
+    with open(Path(args.output_dir, "args.json"), "w") as f:
+        json.dump(vars(args), f, indent=4)
+
     logger = logging.getLogger(__name__)
     logging.basicConfig(
         filename=Path(args.output_dir, "egocentric_mapper_pipeline.log"),
@@ -170,7 +174,6 @@ def main(args=None):
     logger.info(
         f"Results will be saved in {args.output_dir} unless specified otherwise by message."
     )
-    logger.info(f"Arguments: {args}")
 
     neon_of_result, alternative_of_result = calculate_optic_flow(
         neon_timeseries_dir=args.neon_timeseries_dir,

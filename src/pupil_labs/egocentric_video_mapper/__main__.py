@@ -230,6 +230,5 @@ def main(args=None):
 
 
 if __name__ == "__main__":
-    # python -m pupil_labs.egocentric_video_mapper --neon_timeseries_dir /users/sof/video_examples/second_video/2024-05-23_16-47-35-a666ea62 --alternative_vid_path "/users/sof/video_examples/second_video/20240523_171941_000.mp4" --output_dir /users/sof/test_main/filter_issue --optic_flow_choice Lucas-Kanade --matcher Efficient_LOFTR
+    # python -m pupil_labs.egocentric_video_mapper --neon_timeseries_dir 'Path/To/NeonTimeSeriesFolder' --alternative_vid_path 'Path/To/AlternativeVideo.ext' --output_dir "Path/To/OutputFolder"
     main()
-# asking you to restart the session

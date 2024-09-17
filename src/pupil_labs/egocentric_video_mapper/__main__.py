@@ -156,7 +156,7 @@ def main(args=None):
     args = check_and_correct_args(args)
 
     Path(args.output_dir).mkdir(parents=True, exist_ok=True)
-    with open(Path(args.output_dir, "args.json"), "w") as f:
+    with open(Path(args.output_dir, "egocentric_video_mapper_args.json"), "w") as f:
         json.dump(vars(args), f, indent=4)
 
     logger = logging.getLogger(__name__)

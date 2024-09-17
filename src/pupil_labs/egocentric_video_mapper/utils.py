@@ -116,8 +116,7 @@ def generate_mapper_kwargs(
     alternative_vid_path,
     output_dir,
     matcher_choice,
-    optic_flow_method,
-    logging_level="WARNING",
+    logging_level="INFO",
 ):
     matcher_choice = matcher_choice.lower()
     image_matcher_parameters = {
@@ -144,14 +143,10 @@ def generate_mapper_kwargs(
         "neon_gaze_csv": Path(neon_timeseries_dir, "gaze.csv"),
         "neon_video_path": neon_vid_path,
         "neon_timestamps": Path(neon_timeseries_dir, "world_timestamps.csv"),
-        "neon_opticflow_csv": Path(
-            output_dir, f"neon_optic_flow_{optic_flow_method.lower()}.csv"
-        ),
+        "neon_opticflow_csv": Path(output_dir, f"neon_optic_flow.csv"),
         "alternative_video_path": alternative_vid_path,
         "alternative_timestamps": alternative_timestamps_path,
-        "alternative_opticflow_csv": Path(
-            output_dir, f"alternative_optic_flow_{optic_flow_method.lower()}.csv"
-        ),
+        "alternative_opticflow_csv": Path(output_dir, f"alternative_optic_flow.csv"),
         "image_matcher": matcher_choice,
         "image_matcher_parameters": image_matcher_parameters[matcher_choice],
         "output_dir": Path(output_dir),

@@ -283,14 +283,10 @@ def calculate_optic_flow(
         )
 
     optic_flow_neon = neon_of.process_video(
-        output_file_path=Path(
-            output_dir, f"neon_optic_flow_{optic_flow_method.lower()}.csv"
-        )
+        output_file_path=Path(output_dir, f"neon_optic_flow.csv")
     )
     optic_flow_alternative = alternative_of.process_video(
-        output_file_path=Path(
-            output_dir, f"alternative_optic_flow_{optic_flow_method.lower()}.csv"
-        )
+        output_file_path=Path(output_dir, f"alternative_optic_flow.csv")
     )
 
     return optic_flow_neon, optic_flow_alternative

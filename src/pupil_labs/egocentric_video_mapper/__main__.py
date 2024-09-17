@@ -196,7 +196,6 @@ def main(args=None):
         alternative_vid_path=args.alternative_vid_path,
         output_dir=args.output_dir,
         matcher_choice=args.matcher,
-        optic_flow_method=args.optic_flow_choice,
         logging_level=args.logging_level_file,
     )
 
@@ -226,7 +225,7 @@ def main(args=None):
             "gaze_path": Path(gaze_csv_path),
             "save_video_path": Path(
                 args.output_dir,
-                f"alternative_camera_gaze_overlay.mp4",
+                "alternative_camera_gaze_overlay.mp4",
             ),
         }
         save_gaze_video(**gaze_video_args)

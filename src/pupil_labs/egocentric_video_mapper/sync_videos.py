@@ -6,7 +6,6 @@ import scipy.interpolate
 import scipy.signal
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
 
 
 class OffsetCalculator:

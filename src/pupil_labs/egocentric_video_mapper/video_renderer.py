@@ -9,7 +9,6 @@ from tqdm import tqdm
 from pupil_labs.egocentric_video_mapper.video_handler import VideoHandler
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.WARNING)
 
 
 def save_comparison_video(

@@ -7,7 +7,6 @@ import numpy as np
 import pandas as pd
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.WARNING)
 
 
 def write_timestamp_csv(neon_timeseries_dir, aligned_relative_ts, output_file_dir=None):

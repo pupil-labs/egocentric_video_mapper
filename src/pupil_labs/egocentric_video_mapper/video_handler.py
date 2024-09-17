@@ -4,7 +4,6 @@ import av
 import numpy as np
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.WARNING)
 
 
 class VideoHandler:

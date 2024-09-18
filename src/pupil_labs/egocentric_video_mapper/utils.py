@@ -116,7 +116,7 @@ def generate_mapper_kwargs(
     alternative_vid_path,
     output_dir,
     matcher_choice,
-    logging_level="INFO",
+    logging_level="WARNING",
 ):
     matcher_choice = matcher_choice.lower()
     image_matcher_parameters = {

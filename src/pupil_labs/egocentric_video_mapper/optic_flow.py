@@ -207,8 +207,8 @@ class OpticFlowCalculatorLK(OpticFlowCalculatorBase):
         displacement = good_new_points.reshape(-1, 2) - good_old_points.reshape(-1, 2)
 
         return OpticFlowResult(
-            dx=np.mean(displacement[:, 0]),
-            dy=np.mean(displacement[:, 1]),
+            dx=np.mean(displacement[:, 0]) if len(displacement) > 0 else 0,
+            dy=np.mean(displacement[:, 1]) if len(displacement) > 0 else 0,
             start=first_ts,
             end=second_ts,
         )

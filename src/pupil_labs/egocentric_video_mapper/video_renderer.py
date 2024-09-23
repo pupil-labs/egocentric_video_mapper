@@ -90,7 +90,9 @@ def save_comparison_video(
         (0, 255, 255),
     ]
 
-    for alt_ts_idx, alt_ts in enumerate(tqdm(alternative_time)):
+    for alt_ts_idx, alt_ts in enumerate(
+        tqdm(alternative_time, desc="Creating comparison video")
+    ):
         neon_frame = neon_video.get_frame_by_timestamp(alt_ts)
         neon_frame = cv.cvtColor(neon_frame, cv.COLOR_BGR2RGB)
         neon_frame_gaze = _draw_gaze_on_frame(
@@ -301,7 +303,7 @@ def save_gaze_video(video_path, timestamps_path, gaze_path, save_video_path):
     logger.info(f"Saving video at {save_video_path}")
     logger.info(f"Video width: {video_width}, Video height: {video_height}")
 
-    for i, gaze in enumerate(tqdm(gaze_coordinates)):
+    for i, gaze in enumerate(tqdm(gaze_coordinates, desc="Creating gaze video")):
         frame = video.get_frame_by_timestamp(video.timestamps[i])
         frame = cv.cvtColor(frame, cv.COLOR_RGB2BGR)
         frame = _draw_gaze_on_frame(frame, gaze)

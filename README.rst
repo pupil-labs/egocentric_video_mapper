@@ -26,7 +26,11 @@ This project allows you to obtain gaze provided by Pupil Labs Neon eye tracker i
 
 Requirements
 ============
-You should have Python 3.10 or higher. You should also have an available GPU.
+You should have Python 3.10 or higher installed in your system. You should also have an available GPU. 
+This repository assumes a minimum technical knowledge of the command line and Python, if you are not familiar with them, or if you do not have access to a local GPU, we recommend that you use our Google Colab notebook instead:
+
+.. image:: https://img.shields.io/static/v1?label=&message=Open%20in%20Google%20Colab&color=blue&labelColor=grey&logo=Google%20Colab&logoColor=#F9AB00
+   :target: https://colab.research.google.com/drive/1PixYZFYm5O2Uc3sG5X2WHpPUg1DdfeV3?usp=sharing
 
 Installation
 ============

@@ -12,9 +12,11 @@ from pupil_labs.egocentric_video_mapper.utils import (
     generate_mapper_kwargs,
     write_timestamp_csv,
 )
-
-from .video_handler import VideoHandler
-from .video_renderer import save_comparison_video, save_gaze_video
+from pupil_labs.egocentric_video_mapper.video_handler import VideoHandler
+from pupil_labs.egocentric_video_mapper.video_renderer import (
+    save_comparison_video,
+    save_gaze_video,
+)
 
 
 def str2bool(v):
@@ -232,5 +234,5 @@ def main(args=None):
 
 
 if __name__ == "__main__":
-    # python -m pupil_labs.egocentric_video_mapper --neon_timeseries_dir 'Path/To/NeonTimeSeriesFolder' --alternative_vid_path 'Path/To/AlternativeVideo.ext' --output_dir "Path/To/OutputFolder"
+    # python -m pupil_labs.egocentric_video_mapper --neon_timeseries_dir 'Path/To/NeonTimeSeriesFolder' --alternative_vid_path 'Path/To/AlternativeVideo.ext' --output_dir "/Path/To/OutputFolder" --render_comparison_video True --render_video True
     main()

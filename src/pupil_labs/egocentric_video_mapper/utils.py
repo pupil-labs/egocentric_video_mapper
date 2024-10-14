@@ -125,8 +125,6 @@ def generate_mapper_kwargs(
         "disk_lightglue": {"num_features": 2048, "gpu_num": 0},
         "dedode_lightglue": {"num_features": 5000, "gpu_num": 0},
     }
-    # Video file name in the Time Series + Video Scene
-    neon_vid_path = next(Path(neon_timeseries_dir).rglob("*.mp4"))
 
     alternative_timestamps_path = Path(output_dir, "alternative_camera_timestamps.csv")
     if not alternative_timestamps_path.exists():
@@ -140,15 +138,13 @@ def generate_mapper_kwargs(
         )
 
     mapper_kwargs = {
-        "neon_gaze_csv": Path(neon_timeseries_dir, "gaze.csv"),
-        "neon_video_path": neon_vid_path,
-        "neon_timestamps": Path(neon_timeseries_dir, "world_timestamps.csv"),
-        "neon_opticflow_csv": Path(output_dir, f"neon_optic_flow.csv"),
+        "neon_timeseries_dir": Path(neon_timeseries_dir),
         "alternative_video_path": alternative_vid_path,
         "alternative_timestamps": alternative_timestamps_path,
-        "alternative_opticflow_csv": Path(output_dir, f"alternative_optic_flow.csv"),
         "image_matcher": matcher_choice,
         "image_matcher_parameters": image_matcher_parameters[matcher_choice],
+        "neon_opticflow_csv": Path(output_dir, f"neon_optic_flow.csv"),
+        "alternative_opticflow_csv": Path(output_dir, f"alternative_optic_flow.csv"),
         "output_dir": Path(output_dir),
         "patch_size": 1000,
         "logging_level": logging_level,

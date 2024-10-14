@@ -13,10 +13,8 @@ from pupil_labs.egocentric_video_mapper.video_handler import VideoHandler
 class EgocentricMapper:
     def __init__(
         self,
-        neon_gaze_csv,
-        neon_video_path,
+        neon_timeseries_dir,
         alternative_video_path,
-        neon_timestamps,
         alternative_timestamps,
         image_matcher,
         image_matcher_parameters,
@@ -30,10 +28,8 @@ class EgocentricMapper:
         """Class to map gaze from the Neon scene camera to an alternative camera. The gaze is mapped by calling the map_gaze method which uses correspondences between the two cameras to calculate the gaze transformation.
 
         Args:
-            neon_gaze_csv (str): Path to the gaze.csv file from the Neon recording. The file should come from the Timeseries Data + Scene Video download from Pupil Cloud.
-            neon_video_path (str): Path to the video recorded by the Neon scene camera. The video comes from the Timeseries Data + Scene Video download from Pupil Cloud.
+            neon_timeseries_dir (str): Path to the directory containing the Neon scene video, the world_timestamps.csv file and the gaze.csv file.
             alternative_video_path (str): Path to the video recorded by the alternative camera.
-            neon_timestamps (str): Path to the world_timestamps.csv from the Neon recording. The file should come from the Timeseries Data + Scene Video download from Pupil Cloud.
             alternative_timestamps (str): Path to the alternative_camera_timestamps.csv from the alternative camera. This file is create by utils.write_timestamp_csv
             image_matcher (str): Name of the image matcher to be used. For already implemented matcher check the feature_matcher module.
             image_matcher_parameters (dict): Set of specific parameters for the image matcher. The parameters are passed as a dictionary with the parameter name as the key and the parameter value as the value.
@@ -44,10 +40,14 @@ class EgocentricMapper:
             alternative_fov (list, optional): Field of view in degrees of the Neon Scene camera (can be 2D or 1D). If 1D, it is assumed that the camera has the same field of view in both axes. If 2D, it is assumed that [fov_x, fov_y]. Defaults to [145, 76].
             logging_level (str, optional): Level of logging to be used. Defaults to "ERROR".
         """
+        # Video file name in the Time Series + Video Scene
+        neon_video_path = next(Path(neon_timeseries_dir).rglob("*.mp4"))
         self.neon_video = VideoHandler(neon_video_path)
         self.alt_video = VideoHandler(alternative_video_path)
 
-        self.neon_vid_ts_nanosec = pd.read_csv(neon_timestamps)
+        self.neon_vid_ts_nanosec = pd.read_csv(
+            Path(neon_timeseries_dir, "world_timestamps.csv")
+        )
         self.alt_vid_ts_nanosec = pd.read_csv(alternative_timestamps)
         self.alt2neon_offset_sec = (
             self.alt_vid_ts_nanosec["timestamp [ns]"].values[0]
@@ -59,7 +59,7 @@ class EgocentricMapper:
         self.alt_opticflow = pd.read_csv(alternative_opticflow_csv, dtype=np.float32)
         self.alt_opticflow = self.alt_opticflow.iloc[1:]
 
-        self.neon_gaze = pd.read_csv(neon_gaze_csv)  # @ 200Hz
+        self.neon_gaze = pd.read_csv(Path(neon_timeseries_dir, "gaze.csv"))  # @ 200Hz
         self.alt_gaze = self._create_alternative_gaze_df()
 
         self.image_matcher = get_matcher(image_matcher, image_matcher_parameters)

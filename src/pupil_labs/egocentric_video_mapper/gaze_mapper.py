@@ -628,3 +628,188 @@ class EgocentricMapper:
             point_a.dot(point_b) / (np.linalg.norm(point_a) * np.linalg.norm(point_b))
         )
         return np.rad2deg(angular_difference)
+
+
+class EgocentricFixationMapper(EgocentricMapper):
+    def __init__(
+        self,
+        neon_timeseries_dir,
+        alternative_video_path,
+        alternative_timestamps,
+        image_matcher,
+        image_matcher_parameters,
+        neon_opticflow_csv=None,
+        alternative_opticflow_csv=None,
+        output_dir=None,
+        patch_size=1000,
+        alternative_fov=...,
+        logging_level="INFO",
+    ):
+        super().__init__(
+            neon_timeseries_dir,
+            alternative_video_path,
+            alternative_timestamps,
+            image_matcher,
+            image_matcher_parameters,
+            neon_opticflow_csv,
+            alternative_opticflow_csv,
+            output_dir,
+            patch_size,
+            alternative_fov,
+            logging_level,
+        )
+        self.neon_fixations = pd.read_csv(Path(neon_timeseries_dir, "fixations.csv"))
+        self.alt_fixations = self._create_alternative_fixation_df()
+
+        self.corresponding_alt_ts_idx = self._get_corresponding_timestamps_index(
+            self.alt_vid_ts_nanosec["timestamp [ns]"].values,
+            self.alt_fixations["start timestamp [ns]"].values,
+        )
+
+        self.corresponding_neon_ts_idx = self._get_corresponding_timestamps_index(
+            self.neon_vid_ts_nanosec["timestamp [ns]"].values,
+            self.alt_fixations["start timestamp [ns]"].values,
+        )
+
+    def _create_alternative_fixation_df(self):
+        """Creates a DataFrame with the same formatting as the neon_fixations DataFrame, the 'fixation x [px]',
+        'fixation y [px]' columns are filled with None values, the 'azimuth [deg]' and 'elevation [deg]' columns
+        are dropped, the rest of the columns keep the same values as the neon_fixation DataFrame.
+
+        Returns:
+            DataFrame: A DataFrame with similar formatting as the neon_fixation DataFrame
+        """
+        alt_fixation_dataframe = pd.DataFrame(
+            {
+                col: [None for _ in self.neon_fixations["start timestamp [ns]"].values]
+                for col in self.neon_fixations.columns
+            }
+        )
+        alt_fixation_dataframe = alt_fixation_dataframe.drop(
+            ["azimuth [deg]", "elevation [deg]"], axis=1
+        )
+        alt_fixation_dataframe[
+            [
+                "section id",
+                "recording id",
+                "fixation id",
+                "start timestamp [ns]",
+                "end timestamp [ns]",
+                "duration [ms]",
+            ]
+        ] = self.neon_fixations[
+            [
+                "section id",
+                "recording id",
+                "fixation id",
+                "start timestamp [ns]",
+                "end timestamp [ns]",
+                "duration [ms]",
+            ]
+        ].values
+        # start timestamp [ns] of fixations should be greater or equal than the first timestamp of the alternative video
+        # and end timestamp [ns] should be smaller or equal than the last timestamp of the alternative video
+        alt_fixation_dataframe = alt_fixation_dataframe[
+            (
+                alt_fixation_dataframe["start timestamp [ns]"]
+                >= self.alt_vid_ts_nanosec["timestamp [ns]"].values[0]
+            )
+            & (
+                alt_fixation_dataframe["end timestamp [ns]"]
+                <= self.alt_vid_ts_nanosec["timestamp [ns]"].values[-1]
+            )
+        ]
+        return alt_fixation_dataframe
+
+    def map_fixations(self, saving_path=None):
+        neon_fixation_df = pd.DataFrame(
+            {
+                ("start_timestamp_nanosec", ""): self.neon_fixations[
+                    "start timestamp [ns]"
+                ],
+                ("end_timestamp_nanosec", ""): self.neon_fixations[
+                    "end timestamp [ns]"
+                ],
+                ("fixation", "x"): self.neon_fixations["fixation x [px]"],
+                ("fixation", "y"): self.neon_fixations["fixation y [px]"],
+            }
+        )
+        for fixation_idx, fixation_start_ts in enumerate(
+            tqdm(
+                self.alt_fixations["start timestamp [ns]"].values,
+                desc="Mapping fixations",
+            )
+        ):
+            fixation_neon = neon_fixation_df[
+                neon_fixation_df.start_timestamp_nanosec == fixation_start_ts
+            ].fixation.values.reshape(1, 2)
+            fixation_start_rel_ts, neon_rel_ts, alt_rel_ts = self._obtain_relative_ts(
+                fixation_start_ts, fixation_idx
+            )
+            self.logger.info(
+                f"({fixation_idx}) Transforming fixation {fixation_neon} starting at {fixation_start_ts}"
+            )
+            if self._ts_between_video_frames(fixation_start_ts):
+                fixation_neon = self._move_point_to_video_timestamp(
+                    fixation_neon,
+                    fixation_start_rel_ts,
+                    neon_rel_ts,
+                    self.neon_opticflow,
+                )
+            if fixation_idx == 0 or (
+                self.corresponding_neon_ts_idx[fixation_idx]
+                != self.corresponding_neon_ts_idx[fixation_idx - 1]
+            ):
+                neon_frame, _ = self._step_through_video(fixation_idx, "neon")
+            if fixation_idx == 0 or (
+                self.corresponding_alt_ts_idx[fixation_idx]
+                != self.corresponding_alt_ts_idx[fixation_idx - 1]
+            ):
+                alt_frame, _ = self._step_through_video(fixation_idx, "alternative")
+            # Neon recording might have some gray frames at the beginning of it.In this case, no feature matching is possible.
+            if np.all(neon_frame == 100):
+                self.logger.info(f"Neon frame is all gray")
+                fixation_alt_camera = fixation_neon.copy()
+            else:
+                patch_corners = self._get_patch_corners(
+                    self.patch_size, fixation_neon, neon_frame.shape
+                )
+                self.correspondences = self.image_matcher.get_correspondences(
+                    neon_frame, alt_frame, patch_corners
+                )
+                self.logger.info(
+                    f"Matcher was called at {fixation_start_ts} ({len(self.correspondences['keypoints0'])} correspondences)"
+                )
+                filtered_correspondences, new_patch_corners = (
+                    self._filter_correspondences(
+                        self.correspondences.copy(), fixation_neon, neon_frame.shape
+                    )
+                )
+                fixation_alt_camera = self._transform_point(
+                    filtered_correspondences, fixation_neon
+                )
+            if self._ts_between_video_frames(fixation_start_ts):
+                fixation_alt_camera = self._move_point_to_arbitrary_timestamp(
+                    fixation_alt_camera,
+                    alt_rel_ts,
+                    self.alt_opticflow,
+                    fixation_start_rel_ts - self.alt2neon_offset_sec,
+                )
+            self.logger.info(
+                f"({fixation_idx}) Fixation mapped to {fixation_alt_camera}"
+            )
+            self.alt_fixations.loc[
+                self.alt_fixations["start timestamp [ns]"] == fixation_start_ts,
+                ["fixation x [px]", "fixation y [px]"],
+            ] = fixation_alt_camera
+
+        saving_path = Path(
+            saving_path or self.output_dir / "alternative_camera_fixations.csv"
+        )
+        saving_path.parent.mkdir(parents=True, exist_ok=True)
+
+        self.alt_fixations.to_csv(saving_path, index=False)
+        self.logger.info(
+            f"Fixations mapped to alternative camera saved at {saving_path}"
+        )
+        return saving_path

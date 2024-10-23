@@ -384,20 +384,6 @@ class EgocentricMapper:
         else:
             opticflow = np.array([0, 0])
 
-        if self.correspondences is not None:
-            selected_kp = "keypoints0" if video_type == "neon" else "keypoints1"
-            prev_ts = (
-                self.neon_video.timestamps[self.corresponding_neon_ts_idx[i - 1]]
-                if video_type == "neon"
-                else self.alt_video.timestamps[self.corresponding_alt_ts_idx[i - 1]]
-            )
-            self.logger.debug(f"Moving {selected_kp} to {relative_ts}")
-            self.correspondences[selected_kp] = self._move_point_to_video_timestamp(
-                self.correspondences[selected_kp],
-                prev_ts,
-                relative_ts,
-                (self.neon_opticflow if video_type == "neon" else self.alt_opticflow),
-            )
         return frame, opticflow
 
     def _ts_between_video_frames(self, timestamp):

@@ -121,7 +121,8 @@ def generate_mapper_kwargs(
     matcher_choice = matcher_choice.lower()
     image_matcher_parameters = {
         "efficient_loftr": {"model_type": "opt", "gpu_num": 0},
-        "loftr": {"location": "indoor", "gpu_num": 0},
+        "loftr_indoor": {"location": "indoor", "gpu_num": 0},
+        "loftr_outdoor": {"location": "outdoor", "gpu_num": 0},
         "disk_lightglue": {"num_features": 2048, "gpu_num": 0},
         "dedode_lightglue": {"num_features": 5000, "gpu_num": 0},
     }

@@ -4,7 +4,10 @@ import logging
 import sys
 from pathlib import Path
 
-from pupil_labs.egocentric_video_mapper.gaze_mapper import EgocentricMapper
+from pupil_labs.egocentric_video_mapper.gaze_mapper import (
+    EgocentricFixationMapper,
+    EgocentricMapper,
+)
 from pupil_labs.egocentric_video_mapper.optic_flow import calculate_optic_flow
 from pupil_labs.egocentric_video_mapper.sync_videos import OffsetCalculator
 from pupil_labs.egocentric_video_mapper.utils import (
@@ -71,7 +74,13 @@ def init_parser():
     )
 
     parser.add_argument("--output_dir", type=str, help="Output directory.")
-
+    parser.add_argument(
+        "--mapping_choice",
+        type=str,
+        choices=["fixations", "gaze"],
+        default="fixations",
+        help="Mapping type.",
+    )
     parser.add_argument(
         "--optic_flow_choice",
         choices=["Lucas-Kanade", "Farneback"],
@@ -147,7 +156,7 @@ def check_and_correct_args(args):
         args.optic_flow_thrshld = None
     if not hasattr(args, "logging_level_file"):
         args.logging_level_file = "ERROR"
-
+    args.mapping_choice = args.mapping_choice.lower()
     return args
 
 
@@ -163,7 +172,7 @@ def main(args=None):
 
     logger = logging.getLogger(__name__)
     logging.basicConfig(
-        filename=Path(args.output_dir, "egocentric_mapper_pipeline.log"),
+        filename=Path(args.output_dir, f"egocentric_mapper_pipeline.log"),
         filemode="a",
         format="[%(levelname)s]  %(funcName)s function in %(name)s (%(asctime)s):  %(message)s",
         datefmt="%m/%d/%Y %I:%M:%S %p",
@@ -174,7 +183,7 @@ def main(args=None):
         "◎ Egocentric Mapper Module by Pupil Labs",
     )
     logger.info(
-        f"Results will be saved in {args.output_dir} unless specified otherwise by message."
+        f"Mapping {args.mapping_choice} into Alternative Egocentric View.\nResults will be saved in {args.output_dir} unless specified otherwise by message."
     )
 
     neon_of_result, alternative_of_result = calculate_optic_flow(
@@ -201,38 +210,45 @@ def main(args=None):
         logging_level=args.logging_level_file,
     )
 
-    mapper = EgocentricMapper(**mapper_kwargs)
-    gaze_csv_path = mapper.map_gaze(
-        refresh_time_thrshld=args.refresh_time_thrshld,
-        optic_flow_thrshld=args.optic_flow_thrshld,
-        gaze_change_thrshld=args.gaze_change_thrshld,
-    )
+    if args.mapping_choice == "fixations":
+        mapper = EgocentricFixationMapper(**mapper_kwargs)
+        fixations_csv_path = mapper.map_fixations()
+        print(f"Fixations mapped to alternative camera saved at {fixations_csv_path}")
 
-    print(f"Gaze mapped to alternative camera video saved at {gaze_csv_path}")
-    if args.render_comparison_video:
-        comparison_kwargs = generate_comparison_video_kwargs(
-            neon_timeseries_dir=args.neon_timeseries_dir,
-            alternative_vid_path=args.alternative_vid_path,
-            mapped_gaze_path=gaze_csv_path,
-            output_dir=args.output_dir,
+    elif args.mapping_choice == "gaze":
+        mapper = EgocentricMapper(**mapper_kwargs)
+        gaze_csv_path = mapper.map_gaze(
+            refresh_time_thrshld=args.refresh_time_thrshld,
+            optic_flow_thrshld=args.optic_flow_thrshld,
+            gaze_change_thrshld=args.gaze_change_thrshld,
         )
-        save_comparison_video(**comparison_kwargs)
 
-    if args.render_video:
-        gaze_video_args = {
-            "video_path": args.alternative_vid_path,
-            "timestamps_path": Path(
-                args.output_dir, "alternative_camera_timestamps.csv"
-            ),
-            "gaze_path": Path(gaze_csv_path),
-            "save_video_path": Path(
-                args.output_dir,
-                "alternative_camera_gaze_overlay.mp4",
-            ),
-        }
-        save_gaze_video(**gaze_video_args)
+        print(f"Gaze mapped to alternative camera video saved at {gaze_csv_path}")
+        if args.render_comparison_video:
+            comparison_kwargs = generate_comparison_video_kwargs(
+                neon_timeseries_dir=args.neon_timeseries_dir,
+                alternative_vid_path=args.alternative_vid_path,
+                mapped_gaze_path=gaze_csv_path,
+                output_dir=args.output_dir,
+            )
+            save_comparison_video(**comparison_kwargs)
+
+        if args.render_video:
+            gaze_video_args = {
+                "video_path": args.alternative_vid_path,
+                "timestamps_path": Path(
+                    args.output_dir, "alternative_camera_timestamps.csv"
+                ),
+                "gaze_path": Path(gaze_csv_path),
+                "save_video_path": Path(
+                    args.output_dir,
+                    "alternative_camera_gaze_overlay.mp4",
+                ),
+            }
+            save_gaze_video(**gaze_video_args)
 
 
 if __name__ == "__main__":
-    # python -m pupil_labs.egocentric_video_mapper --neon_timeseries_dir 'Path/To/NeonTimeSeriesFolder' --alternative_vid_path 'Path/To/AlternativeVideo.ext' --output_dir "/Path/To/OutputFolder" --render_comparison_video True --render_video True
+    # python -m pupil_labs.egocentric_video_mapper --neon_timeseries_dir 'Path/To/NeonTimeSeriesFolder' --alternative_vid_path 'Path/To/AlternativeVideo.ext' --output_dir "/Path/To/OutputFolder" --mappping_choice 'fixations'
+    ## python -m pupil_labs.egocentric_video_mapper --neon_timeseries_dir 'Path/To/NeonTimeSeriesFolder' --alternative_vid_path 'Path/To/AlternativeVideo.ext' --output_dir "/Path/To/OutputFolder" --mappping_choice 'gaze' --render_comparison_video True --render_video True
     main()

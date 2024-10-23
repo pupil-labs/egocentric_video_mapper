@@ -33,6 +33,10 @@ def str2bool(v):
         raise argparse.ArgumentTypeError("Boolean value expected.")
 
 
+def str_lower(s):
+    return s.lower()
+
+
 def align_videos(
     alternative_result,
     neon_result,
@@ -76,15 +80,16 @@ def init_parser():
     parser.add_argument("--output_dir", type=str, help="Output directory.")
     parser.add_argument(
         "--mapping_choice",
-        type=str,
-        choices=["fixations", "gaze"],
-        default="fixations",
+        type=str_lower,
+        choices=["fixations", "gaze", "both"],
+        default="both",
         help="Mapping type.",
     )
     parser.add_argument(
         "--optic_flow_choice",
-        choices=["Lucas-Kanade", "Farneback"],
-        default="Lucas-Kanade",
+        type=str_lower,
+        choices=["lucas-kanade", "farneback"],
+        default="lucas-kanade",
     )
 
     parser.add_argument(
@@ -182,8 +187,13 @@ def main(args=None):
     logger.info(
         "◎ Egocentric Mapper Module by Pupil Labs",
     )
+    mssg_mapping_choice = (
+        "both fixations and gaze"
+        if args.mapping_choice == "both"
+        else args.mapping_choice
+    )
     logger.info(
-        f"Mapping {args.mapping_choice} into Alternative Egocentric View.\nResults will be saved in {args.output_dir} unless specified otherwise by message."
+        f"Mapping {mssg_mapping_choice} into Alternative Egocentric View.\nResults will be saved in {args.output_dir} unless specified otherwise by message."
     )
 
     neon_of_result, alternative_of_result = calculate_optic_flow(
@@ -210,12 +220,12 @@ def main(args=None):
         logging_level=args.logging_level_file,
     )
 
-    if args.mapping_choice == "fixations":
+    if args.mapping_choice == "fixations" or args.mapping_choice == "both":
         mapper = EgocentricFixationMapper(**mapper_kwargs)
         fixations_csv_path = mapper.map_fixations()
         print(f"Fixations mapped to alternative camera saved at {fixations_csv_path}")
 
-    elif args.mapping_choice == "gaze":
+    if args.mapping_choice == "gaze" or args.mapping_choice == "both":
         mapper = EgocentricMapper(**mapper_kwargs)
         gaze_csv_path = mapper.map_gaze(
             refresh_time_thrshld=args.refresh_time_thrshld,

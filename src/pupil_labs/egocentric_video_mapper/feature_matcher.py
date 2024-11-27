@@ -231,7 +231,7 @@ class DeDoDeLightGlueImageMatcher(ImageMatcher):
         )
         dst_tensor, dst_scaled2original = self._preprocess_image(
             dst_image, dst_patch_corners, gray_scale=False
-        )  # 1xcxhxw
+        )  # 1xCxHxW
 
         with torch.inference_mode():
             src_tensor = src_tensor.to(self._device)

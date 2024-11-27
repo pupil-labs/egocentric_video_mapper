@@ -82,7 +82,7 @@ class VideoHandler:
             (self.timestamps >= start_time) & (self.timestamps <= end_time)
         ]
 
-    def get_closest_timestamp(self, time):  # debug
+    def get_closest_timestamp(self, time):
         after_index = np.searchsorted(self.timestamps, time)
         if after_index == len(self.timestamps):
             after_index = len(self.timestamps) - 1

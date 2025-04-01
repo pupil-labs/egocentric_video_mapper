@@ -45,6 +45,13 @@ class VideoHandler:
         vid_frame, self.lpts = get_frame(
             self.video_container, pts, self.lpts, self.last_frame
         )
+        if vid_frame is None:
+            logger.warning(
+                f"Frame {pts} not found in video, using last frame {self.lpts}"
+            )
+            vid_frame = self.last_frame
+
+        
         frame = vid_frame.to_ndarray(format="rgb24")
         self.last_frame = vid_frame
         self._read_frames += 1

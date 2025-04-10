@@ -41,7 +41,7 @@ class VideoHandler:
 
     def _get_timestamps(self):
         self.pts = self.video_container.pts
-        return self.video_container.container_timestamps
+        return np.array(self.video_container.container_timestamps, dtype=np.float32)
 
     def _set_properties(self):
         self._height = self.video_container.height

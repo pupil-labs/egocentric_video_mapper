@@ -1,9 +1,14 @@
 import logging
 import os
+import subprocess
 from pathlib import Path
 
+import cv2
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+
+from pupil_labs.egocentric_video_mapper.video_handler import VideoHandler
 
 logger = logging.getLogger(__name__)
 
@@ -188,3 +193,69 @@ def get_file(folder_dir, file_suffix=".mp4", required_in_name="0"):
         for name in files
         if name.endswith(file_suffix) and required_in_name in name
     ][0]
+
+
+def execute_ffmpeg_command(rotation, video_path):
+    rotation_map = {
+        "90° clockwise": ["-vf", "transpose=1"],
+        "90° counterclockwise": ["-vf", "transpose=2"],
+        "180°": ["-vf", "transpose=1,transpose=1"],
+    }
+    name_new_video = (
+        os.path.splitext(os.path.basename(video_path))[0] + "_corrected_orientation.mp4"
+    )
+    name_new_video = os.path.join(os.path.dirname(video_path), name_new_video)
+
+    command = [
+        "ffmpeg",
+        "-y",
+        "-i",
+        video_path,
+        "-metadata:s:v:0",
+        "rotate=0",
+        *rotation_map.get(rotation, []),
+        "-c:v",
+        "mpeg4",
+        "-q:v",
+        "5",
+        "-c:a",
+        "copy",
+        name_new_video,
+    ]
+    subprocess.run(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    return (
+        (" ").join(command),
+        name_new_video,
+    )
+
+
+def show_videos_preview(neon_timeseries_dir, alternative_video_path):
+    plt.figure(figsize=(10, 10))
+    plt.subplot(1, 2, 1)
+    neon_video_path = get_file(neon_timeseries_dir)
+    neon_scene_video = VideoHandler(neon_video_path)
+    frames_in_video = len(neon_scene_video.timestamps)
+    frame_for_display = cv2.cvtColor(
+        neon_scene_video.get_frame_by_timestamp(
+            neon_scene_video.timestamps[frames_in_video // 2]
+        ),
+        cv2.COLOR_BGR2RGB,
+    )
+    plt.imshow(frame_for_display)
+    plt.axis("off")
+    plt.title("Neon Scene Video")
+    # Display the alternative egocentric video
+    alternative_egocentric_video = VideoHandler(alternative_video_path)
+    frames_in_video = len(alternative_egocentric_video.timestamps)
+
+    frame_for_display = cv2.cvtColor(
+        alternative_egocentric_video.get_frame_by_timestamp(
+            alternative_egocentric_video.timestamps[frames_in_video // 2]
+        ),
+        cv2.COLOR_BGR2RGB,
+    )
+    plt.subplot(1, 2, 2)
+    plt.imshow(frame_for_display)
+    plt.axis("off")
+    plt.title("Alternative Egocentric Video")
+    plt.show()

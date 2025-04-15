@@ -259,6 +259,6 @@ def main(args=None):
 
 
 if __name__ == "__main__":
-    # python -m pupil_labs.egocentric_video_mapper --neon_timeseries_dir 'Path/To/NeonTimeSeriesFolder' --alternative_vid_path 'Path/To/AlternativeVideo.ext' --output_dir "/Path/To/OutputFolder" --mappping_choice 'fixations'
-    ## python -m pupil_labs.egocentric_video_mapper --neon_timeseries_dir 'Path/To/NeonTimeSeriesFolder' --alternative_vid_path 'Path/To/AlternativeVideo.ext' --output_dir "/Path/To/OutputFolder" --mappping_choice 'gaze' --render_comparison_video True --render_video True
+    # python -m pupil_labs.egocentric_video_mapper --neon_timeseries_dir 'Path/To/NeonTimeSeriesFolder' --alternative_vid_path 'Path/To/AlternativeVideo.ext' --output_dir "/Path/To/OutputFolder" --mapping_choice 'fixations'
+    ## python -m pupil_labs.egocentric_video_mapper --neon_timeseries_dir 'Path/To/NeonTimeSeriesFolder' --alternative_vid_path 'Path/To/AlternativeVideo.ext' --output_dir "/Path/To/OutputFolder" --mapping_choice 'gaze' --render_comparison_video True --render_video True
     main()

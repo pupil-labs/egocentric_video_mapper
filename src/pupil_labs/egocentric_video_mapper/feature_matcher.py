@@ -309,6 +309,7 @@ class EfficientLoFTRImageMatcher(ImageMatcher):
                     Path(__file__).parent
                     / "efficient_loftr/weights/eloftr_outdoor.ckpt",
                     map_location=self._device,
+                    weights_only=False,
                 )["state_dict"]
             )
         # Exception created for running in google colab
@@ -317,6 +318,7 @@ class EfficientLoFTRImageMatcher(ImageMatcher):
                 torch.load(
                     "/content/egocentric_video_mapper/src/pupil_labs/egocentric_video_mapper/efficient_loftr/weights/eloftr_outdoor.ckpt",
                     map_location=self._device,
+                    weights_only=False,
                 )["state_dict"]
             )
         self.image_matcher = reparameter(self.image_matcher)

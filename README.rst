@@ -40,7 +40,7 @@ Open the terminal and go to the directory where you would like to clone the repo
 
 Clone the repository by running the following command from the terminal:
 ::
-   git clone git@github.com:pupil-labs/action_cam_mapper.git
+   git clone git@github.com:pupil-labs/egocentric_video_mapper.git
 
 Create a virtual environment for the project:
 ::
@@ -54,16 +54,16 @@ Or if you are using conda:
 
 Go to the project directory:
 ::
-   cd /path/to/your/directory/action_cam_mapper
+   cd /path/to/your/directory/egocentric_video_mapper
    pip install -e .
 
-Download the directory with model weights for `EfficientLOFTR <https://github.com/zju3dv/EfficientLoFTR/>`__ from the following `download link <https://drive.google.com/drive/folders/1GOw6iVqsB-f1vmG6rNmdCcgwfB4VZ7_Q>`__  and place it in the src/pupil_labs/action_cam_mapper/efficient_loftr directory.
+Download the directory with model weights for `EfficientLOFTR <https://github.com/zju3dv/EfficientLoFTR/>`__ from the following `download link <https://drive.google.com/drive/folders/1GOw6iVqsB-f1vmG6rNmdCcgwfB4VZ7_Q>`__  and place it in the src/pupil_labs/egocentric_video_mapper/efficient_loftr directory.
 
 Run it!
 ============
 To run the project, you can open 'PL-mapper.ipynb' in the IDE of your choice and run the cells. Conversely, you can run the following command from the terminal and it will open the notebook in your browser ready to run the cells:
 ::
-   jupyter notebook --port=9000 src/pupil_labs/action_cam_mapper/PL-mapper.ipynb
+   jupyter notebook --port=9000 src/pupil_labs/egocentric_video_mapper/PL-mapper.ipynb
 
 
 Support
